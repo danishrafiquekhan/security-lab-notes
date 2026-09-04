@@ -1,4 +1,4 @@
-# Part 12: Appendix — Paid vs. Free Summary Table
+**Part 12: Appendix — Paid vs. Free Summary Table**<!--h1-->
 
 A single reference table for every tool/service/product mentioned across
 this document, covering what's actually free, what the real limits of a
@@ -37,7 +37,7 @@ budget decision.
 | **GitHub** | Freemium | Free tier includes unlimited public repositories and (with reasonable limits) private repositories, free CI minutes on a monthly allowance, and core collaboration features; paid tiers add more CI minutes, advanced security features (e.g. certain code-scanning capabilities), and organization-level administrative controls. | Hosts every repo in this lab's portfolio — all public repos are free-tier public repos; `intune-endpoint-health-platform` is a private repo, also within the free tier's private-repo allowance. |
 | **Windows Server 2022 Evaluation** | Free, but explicitly **not** a real production license | The evaluation build is time-limited — Microsoft's Server evaluation media is generally documented as a **180-day** evaluation period (this document notes 180 days as the commonly cited figure; the brief for this lab did not itself specify a number, so treat this as accurate-to-general-Microsoft-documentation rather than lab-verified — confirm against the actual installed build's `slmgr /dlv` output if the exact remaining evaluation window ever matters operationally). After the evaluation period, the OS requires conversion to a licensed edition or will begin forcing periodic shutdowns. | The Windows Server 2022 VM built via raw QEMU in this lab, intended to eventually run Sysmon + a Wazuh agent + Atomic Red Team tests — evaluation-licensed, not production-licensed, by design (it's a disposable-in-principle lab VM, though see Part 9's note on the tension between that and its current hardcoded-password/10-boot-autologon configuration). |
 
-## Notes on accuracy and drift
+**Notes on accuracy and drift**<!--h2-->
 
 Free-tier limits, evaluation license durations, and pricing structures
 are exactly the kind of detail vendors change without much notice. The

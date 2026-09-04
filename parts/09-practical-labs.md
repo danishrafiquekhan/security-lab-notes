@@ -1,4 +1,4 @@
-# Part 9: End-to-End Practical Labs
+**Part 9: End-to-End Practical Labs**<!--h1-->
 
 The labs below are reproducible steps for what was actually built and
 verified in this lab session, on a MacBook (Apple Silicon, 16GB RAM), macOS,
@@ -10,23 +10,23 @@ was verified up to a specific, stated point and no further. Lab 5 is
 explicitly not done yet and is included as a documented next step, not a
 completed lab.
 
-![Diagram](../diagrams/09-practical-labs-18.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/09-practical-labs-18.png)
 
-## Lab 1: Stand up Wazuh **[FREE]** locally via Docker
+**Lab 1: Stand up Wazuh **[FREE]** locally via Docker**<!--h2-->
 
-### Goal
+**Goal**<!--h3-->
 
 Get a working single-node Wazuh 4.9.2 SIEM/XDR stack (manager, indexer,
 dashboard) running locally via Docker, as the foundation every other lab in
 this document depends on.
 
-### Prerequisites
+**Prerequisites**<!--h3-->
 
 - Docker Desktop installed and running (macOS, Apple Silicon).
 - Git.
 - At least a few GB of free disk for the indexer's data volume.
 
-### Steps
+**Steps**<!--h3-->
 
 1. Clone the official Wazuh Docker repository to a location outside any git
    repo you intend to push publicly — this stack generates real certs and
@@ -76,7 +76,7 @@ this document depends on.
    Expected: `wazuh.manager`, `wazuh.indexer`, and `wazuh.dashboard`
    containers all in a running/healthy state.
 
-### Expected result
+**Expected result**<!--h3-->
 
 - Wazuh dashboard reachable at `https://localhost` in a browser (self-signed
   cert — browser will warn, accept to proceed).
@@ -87,7 +87,7 @@ this document depends on.
   externally.
 - Indexer API reachable on port `9200`.
 
-### What it teaches
+**What it teaches**<!--h3-->
 
 - The shape of a real, self-hosted SIEM deployment: three cooperating
   services (ingestion/correlation, search/storage, visualization), not a
@@ -101,15 +101,15 @@ this document depends on.
   the container is trying to write, check whether the host path allows
   that) is a transferable skill well beyond Wazuh specifically.
 
-## Lab 2: Wire a real Cloudflare Pages site's traffic into Wazuh with a custom detection rule
+**Lab 2: Wire a real Cloudflare Pages site's traffic into Wazuh with a custom detection rule**<!--h2-->
 
-### Goal
+**Goal**<!--h3-->
 
 Get live, real HTTP traffic from a real public website into Wazuh, and have
 a custom rule fire a real alert on a specific suspicious path — end to end,
 verified with real curl-generated evidence.
 
-### Prerequisites
+**Prerequisites**<!--h3-->
 
 - Lab 1 completed (Wazuh running locally).
 - A Cloudflare **[FREEMIUM]** account (static Pages hosting is free; note
@@ -118,7 +118,7 @@ verified with real curl-generated evidence.
 - `wrangler` (Cloudflare's CLI) installed via npm.
 - Python 3 for the relay script.
 
-### Steps
+**Steps**<!--h3-->
 
 1. Create and deploy a minimal static Cloudflare Pages site with a
    `functions/_middleware.js` Pages Function that logs every request:
@@ -214,7 +214,7 @@ verified with real curl-generated evidence.
    curl https://soc-lab-target.pages.dev/login.html
    ```
 
-### Expected result
+**Expected result**<!--h3-->
 
 Real request appears via the `wrangler tail` → relay → Wazuh pipeline, and
 rule 100011 fires a level-7 alert visible in the Wazuh dashboard, with the
@@ -222,7 +222,7 @@ real client IP, country, and user-agent from the actual curl request
 attached in `data.*` fields. **This was verified live in this session** —
 real curl traffic produced real alerts, not a simulated/assumed result.
 
-### What it teaches
+**What it teaches**<!--h3-->
 
 - The general pattern for feeding any source that doesn't have a native
   Wazuh integration: capture → relay/reformat → localfile → custom rule.
@@ -236,21 +236,21 @@ real curl traffic produced real alerts, not a simulated/assumed result.
   redeploy) that a from-scratch reader would hit and should expect, not be
   surprised by.
 
-## Lab 3: Wire a real MySQL container's logs into Wazuh using its built-in `mysql_log` decoder/rules
+**Lab 3: Wire a real MySQL container's logs into Wazuh using its built-in `mysql_log` decoder/rules**<!--h2-->
 
-### Goal
+**Goal**<!--h3-->
 
 Feed a real MySQL 8.0 container's authentication logs into Wazuh and
 confirm Wazuh's *built-in* MySQL ruleset detects failed authentication —
 deliberately contrasted with Lab 2, which needed a custom rule because no
 built-in ruleset existed for that source.
 
-### Prerequisites
+**Prerequisites**<!--h3-->
 
 - Lab 1 completed.
 - Docker, for running the MySQL container.
 
-### Steps
+**Steps**<!--h3-->
 
 1. Stand up a MySQL 8.0 container with general query logging and error
    logging both enabled:
@@ -301,7 +301,7 @@ built-in ruleset existed for that source.
    done
    ```
 
-### Expected result
+**Expected result**<!--h3-->
 
 Four deliberate wrong-password login attempts correctly fired Wazuh's
 built-in rule 50106 ("MySQL: authentication failure", level 9). **Verified
@@ -311,7 +311,7 @@ NIST 800-53 compliance controls out of the box — mappings that come baked
 into Wazuh's official ruleset and that a hand-written custom rule would not
 have had unless the compliance tags were manually added.
 
-### What it teaches
+**What it teaches**<!--h3-->
 
 - The direct contrast with Lab 2: when a log source has a well-known,
   standard format (MySQL's error/general log format is stable and
@@ -327,15 +327,15 @@ have had unless the compliance tags were manually added.
   rule" over "write a new rule to match the log" whenever a built-in option
   exists.
 
-## Lab 4: Build a Windows Server 2022 evaluation VM via QEMU with a fully unattended install
+**Lab 4: Build a Windows Server 2022 evaluation VM via QEMU with a fully unattended install**<!--h2-->
 
-### Goal
+**Goal**<!--h3-->
 
 Get a working Windows Server 2022 desktop running under QEMU on Apple
 Silicon, installed with zero interactive input, as the target host for
 future Atomic Red Team testing (Lab 5).
 
-### Prerequisites
+**Prerequisites**<!--h3-->
 
 - QEMU installed via Homebrew (`brew install qemu`).
 - `hdiutil` (built into macOS) for building the answer-file ISO.
@@ -347,7 +347,7 @@ future Atomic Red Team testing (Lab 5).
   guest on an Apple Silicon host is genuinely slow; this is not a KVM/HVF
   accelerated install.
 
-### Steps
+**Steps**<!--h3-->
 
 1. Create the virtual disk:
 
@@ -435,17 +435,17 @@ future Atomic Red Team testing (Lab 5).
    combination, not a misconfiguration to fix.
 
 5. Connect via VNC (`:1` → `localhost:5901`) to watch/confirm the
-   unattended install proceeds without any prompts, through to a working
-   desktop with the 10-boot autologon oobeSystem setting takes it to.
+   unattended install proceeds without any prompts, through to the working
+   desktop the 10-boot autologon oobeSystem setting takes it to.
 
-### Expected result
+**Expected result**<!--h3-->
 
 A booted Windows Server 2022 desktop, reached with zero interactive input
 during setup, confirmed by connecting over VNC and seeing a logged-in
 desktop. **This was confirmed** — the install completed and a working
 desktop was reached.
 
-### What was NOT verified — an honest, stated gap
+**What was NOT verified — an honest, stated gap**<!--h3-->
 
 Reaching a working desktop over VNC is not the same claim as "this VM is
 reachable and manageable the way a real lab target needs to be." **RDP and
@@ -461,7 +461,7 @@ assumption dressed up as a result — a reader reproducing this lab should
 treat "confirm RDP/WinRM actually connect from the host" as an unverified
 next step, separate from and in addition to Lab 5's Sysmon/agent work.
 
-### The open, unresolved tension worth naming
+**The open, unresolved tension worth naming**<!--h3-->
 
 QuartzVM, the GUI VM manager the user separately built (a real open-source,
 MIT-licensed Rust/Tauri app, `quartzvm-releases`), is explicitly designed
@@ -475,7 +475,7 @@ before it's used for anything sensitive, or does its role (a fixed Atomic
 Red Team target) argue for persistence being fine here? Both positions have
 merit; no decision has been made.
 
-### What it teaches
+**What it teaches**<!--h3-->
 
 - The real mechanics of a fully unattended Windows install via raw QEMU —
   not through a GUI wizard, but through the actual answer-file/ISO
@@ -496,9 +496,9 @@ merit; no decision has been made.
   reachability), and conflating the two is exactly the kind of overclaiming
   this document is built to avoid.
 
-## Lab 5 (NOT YET DONE — a documented next step, not a completed lab): install Sysmon + a Wazuh agent, run one real Atomic Red Team test
+**Lab 5 (NOT YET DONE — a documented next step, not a completed lab): install Sysmon + a Wazuh agent, run one real Atomic Red Team test**<!--h2-->
 
-### Status
+**Status**<!--h3-->
 
 This lab has not been performed. It is included here specifically so the
 gap is documented rather than silently missing, and so a reader knows
@@ -507,7 +507,7 @@ exactly what remains between "a Windows VM exists" (Lab 4) and "the
 real, run, evidenced case studies" rather than the "planned, not yet run"
 state they're honestly labeled with today (see Part 6, Walkthrough 3).
 
-### Goal (planned)
+**Goal (planned)**<!--h3-->
 
 Install Sysmon and a Wazuh agent on the Windows Server 2022 VM from Lab 4,
 confirm the agent registers with the Wazuh manager from Lab 1 and Sysmon
@@ -517,7 +517,7 @@ T1059.001 (PowerShell), since it requires no cloud identity setup, unlike
 T1078.004 which involves cloud account context — and confirm Wazuh produces
 a real alert from real Sysmon telemetry of that real technique execution.
 
-### Prerequisites this depends on
+**Prerequisites this depends on**<!--h3-->
 
 - Lab 4's VM, plus resolving the stated RDP/WinRM reachability gap from Lab
   4 first — Sysmon and agent installation will need either a working RDP
@@ -534,7 +534,7 @@ a real alert from real Sysmon telemetry of that real technique execution.
 - The Atomic Red Team PowerShell module (`Invoke-AtomicRedTeam`) installed
   on the guest to actually execute the T1059.001 atomic test.
 
-### What it would teach, once done
+**What it would teach, once done**<!--h3-->
 
 - Whether Wazuh's default Windows/Sysmon ruleset detects the atomic test's
   execution pattern out of the box, or whether — as with the Cloudflare

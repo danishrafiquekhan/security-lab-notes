@@ -1,4 +1,4 @@
-# Part 3.4-3.6: Suricata, MySQL, Cloudflare Pages + Workers/Functions
+**Part 3.4-3.6: Suricata, MySQL, Cloudflare Pages + Workers/Functions**<!--h1-->
 
 This part covers three very different kinds of monitored target in the lab:
 a network intrusion detection engine that is built but not yet wired in
@@ -8,14 +8,16 @@ smuggled out of a platform that doesn't want to give them to you for free
 (Cloudflare Pages + Functions). Read together, they make a useful point:
 how much detection work a target needs depends entirely on how close its
 native log format already is to what your SIEM expects. MySQL needed zero
-custom Wazuh rules. Cloudflare needed a custom rule but no custom decoder.
-Suricata, if and when it gets wired in, will need real decoder work because
-its EVE JSON schema is nothing like either of the other two. That contrast
-is the throughline of this part.
+custom Wazuh rules or decoders. Cloudflare needed a custom rule but no
+custom decoder. Suricata, if and when it gets wired in, will need custom
+rules too — like Cloudflare, not like MySQL — because Wazuh ships no
+built-in Suricata ruleset, even though its EVE JSON is already
+well-structured enough that it won't need a custom decoder either. That
+contrast is the throughline of this part.
 
-## Part 3.4: Suricata — Network Intrusion Detection
+**Part 3.4: Suricata — Network Intrusion Detection**<!--h2-->
 
-### What a network IDS actually does
+**What a network IDS actually does**<!--h3-->
 
 **Suricata** **[FREE]** (open source, GPLv2, maintained by the Open
 Information Security Foundation) is a network intrusion detection and
@@ -33,7 +35,7 @@ things no application log would ever mention — a port scan, a C2 beacon
 using a protocol nobody instrumented, a plaintext credential crossing the
 wire in a protocol that was never supposed to carry it in the clear.
 
-### Signature-based detection vs anomaly detection
+**Signature-based detection vs anomaly detection**<!--h3-->
 
 Suricata (like its predecessor/sibling Snort) is primarily a
 **signature-based** engine, though it supports some anomaly-style features.
@@ -78,7 +80,7 @@ anomaly/behavioral layers (increasingly, this is what "XDR" vendors sell as
 their differentiator on top of a base like this) catch what signatures
 miss, at the cost of more tuning and more analyst judgment on each alert.
 
-### Why Suricata is "the obvious next thing to feed into Wazuh" — and why it isn't wired in yet
+**Why Suricata is "the obvious next thing to feed into Wazuh" — and why it isn't wired in yet**<!--h3-->
 
 Suricata's container (`jasonish/suricata:latest`) was built previously in
 this lab and is currently **stopped/idle** — it has not been running
@@ -107,7 +109,7 @@ integration (custom rule, no custom decoder) rather than the MySQL one
 the pattern is already proven twice in this lab, just not yet applied to
 network traffic.
 
-### When to use this / when NOT to use this
+**When to use this / when NOT to use this**<!--h3-->
 
 Use a NIDS like Suricata when you need visibility into traffic your
 endpoints and applications don't or can't log — lateral movement between
@@ -121,9 +123,9 @@ once authenticated. In this lab specifically: do not describe Suricata as
 "deployed" or "detecting" anything right now — it is a stopped container
 with real prior build work behind it, not a live control.
 
-## Part 3.5: MySQL as a Monitored, Attacked Lab Target
+**Part 3.5: MySQL as a Monitored, Attacked Lab Target**<!--h2-->
 
-### Why a real MySQL container
+**Why a real MySQL container**<!--h3-->
 
 A real MySQL 8.0 container (`soc-lab-mysql`) — **[FREE]** (MySQL Community
 Edition, GPL) — was stood up in this lab session specifically to be a
@@ -132,7 +134,7 @@ point was to generate real authentication log lines from real failed
 login attempts and prove those lines reach Wazuh and fire a real rule —
 end to end, not simulated.
 
-### general_log vs error_log — and why that distinction is a real production tradeoff
+**general_log vs error_log — and why that distinction is a real production tradeoff**<!--h3-->
 
 MySQL ships (at minimum) two separate logging subsystems relevant here,
 and conflating them is a common mistake:
@@ -174,7 +176,7 @@ walk away thinking "just turn general_log on in production," they should
 walk away understanding *why that's a real decision with a real cost*,
 made deliberately here because the tradeoff doesn't bite at lab scale.
 
-### Wazuh's built-in MySQL decoder and rules
+**Wazuh's built-in MySQL decoder and rules**<!--h3-->
 
 Wazuh ships built-in support for MySQL's log format out of the box, in two
 files inside its default ruleset:
@@ -192,7 +194,7 @@ speaks MySQL's log dialect natively. The only integration work required
 was getting MySQL's actual log lines into the exact shape Wazuh's existing
 decoder is written to expect.
 
-### The prematch problem, and how the relay bridges it
+**The prematch problem, and how the relay bridges it**<!--h3-->
 
 Wazuh's built-in MySQL decoder is written around a specific `prematch`
 pattern — conceptually, it expects to see a log line that begins with a
@@ -235,9 +237,9 @@ arbitrary application's actual log output byte-for-byte, and the practical
 fix is almost always a small normalization step ahead of ingestion, not
 rewriting the SIEM's decoder.
 
-![Diagram](../diagrams/03b-tools-suricata-mysql-cloudflare-6.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03b-tools-suricata-mysql-cloudflare-6.png)
 
-### The verified result
+**The verified result**<!--h3-->
 
 This was verified live, not simulated: **4 deliberate wrong-password login
 attempts** against `soc-lab-mysql` produced 4 corresponding
@@ -255,7 +257,7 @@ whoever wrote the rule, surfaced automatically when the rule fires — not
 something computed dynamically from the alert content, and not something
 this lab built itself.
 
-### When to use this / when NOT to use this
+**When to use this / when NOT to use this**<!--h3-->
 
 Use built-in vendor decoders/rules whenever the target software is common
 enough that the SIEM vendor already wrote content for it — MySQL, SSH,
@@ -270,9 +272,9 @@ here. Do not enable full general query logging on anything that isn't a
 disposable lab target without deliberately weighing the disk, I/O, and
 data-exposure costs described above.
 
-## Part 3.6: Cloudflare Pages + Workers/Functions
+**Part 3.6: Cloudflare Pages + Workers/Functions**<!--h2-->
 
-### Static hosting vs edge compute — the distinction that matters here
+**Static hosting vs edge compute — the distinction that matters here**<!--h3-->
 
 **Cloudflare Pages** **[FREEMIUM]** (static hosting is free; Logpush/log
 retention requires a paid plan — the specific limit that matters most for
@@ -291,7 +293,7 @@ what the CDN's own access logs might capture (and on Free tier, as below,
 that's effectively nothing persistent); a Function can run arbitrary code
 on every request — including, as built here, logging it.
 
-### The lab's real setup
+**The lab's real setup**<!--h3-->
 
 The live target is `soc-lab-target.pages.dev`, a real, public, Free-tier
 Cloudflare Pages site — three static pages (a home page, a dummy
@@ -303,7 +305,7 @@ not a real company, and collects nothing. A Cloudflare Pages Function at
 method, path, client IP (via the `cf-connecting-ip` header Cloudflare
 attaches), country, and user-agent via `console.log`.
 
-### Why Free tier has no Logpush, and what that means practically
+**Why Free tier has no Logpush, and what that means practically**<!--h3-->
 
 Cloudflare's **Logpush** product — continuous, durable streaming of
 request/log data out to an external destination (S3, a SIEM, etc.) — is a
@@ -319,7 +321,7 @@ has to be built by the user, which is exactly what this lab's Python relay
 does (see below): live-tail, capture, and durably append to your own file
 before Cloudflare's transient view of that request disappears.
 
-### The wrangler-tail limitation: bound to a deployment ID
+**The wrangler-tail limitation: bound to a deployment ID**<!--h3-->
 
 Live traffic is captured via:
 
@@ -345,7 +347,7 @@ persistent monitoring would need to script deployment-ID discovery and
 tail-process restart around every deploy, or move to a paid plan with
 Logpush instead of relying on `wrangler tail` at all.
 
-### The relay and Wazuh ingestion — and why this needed a custom rule but no custom decoder
+**The relay and Wazuh ingestion — and why this needed a custom rule but no custom decoder**<!--h3-->
 
 The `wrangler pages deployment tail --format=json` output is parsed by a
 Python relay script and appended to a file that Wazuh watches with
@@ -378,16 +380,16 @@ structurally, and (b) a format the SIEM's *rule content* already has
 opinions about semantically. A source can need heavy help on one axis and
 none on the other, as both of these prove in opposite ways.
 
-![Diagram](../diagrams/03b-tools-suricata-mysql-cloudflare-7.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03b-tools-suricata-mysql-cloudflare-7.png)
 
-### Verified result
+**Verified result**<!--h3-->
 
 This was verified live with real `curl` traffic against the public site
 producing real alerts in Wazuh — a genuine end-to-end path from an actual
 HTTP request, through Cloudflare's edge, through the tail-and-relay
 pipeline, into a firing custom rule.
 
-### When to use this / when NOT to use this
+**When to use this / when NOT to use this**<!--h3-->
 
 Use Cloudflare Pages Functions when you want edge-level request visibility
 or edge-level logic (auth checks, redirects, header injection, and here,

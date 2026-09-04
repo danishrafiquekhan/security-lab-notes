@@ -1,6 +1,6 @@
-# Part 6: Incident Response & Triage Workflows
+**Part 6: Incident Response & Triage Workflows**<!--h1-->
 
-## 6.1 The alert → investigation → case → resolution lifecycle
+**6.1 The alert → investigation → case → resolution lifecycle**<!--h2-->
 
 Every incident response process, no matter how mature the organization, moves
 through the same four stages. Understanding what each stage is actually *for*
@@ -9,7 +9,7 @@ tool names, because the tools change (this lab uses Wazuh **[FREE]** and
 TheHive/Cortex **[FREE]**; a production shop might use Splunk **[PAID]** and
 ServiceNow SecOps **[PAID]**) but the stages don't.
 
-![Diagram](../diagrams/06-incident-response-triage-12.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/06-incident-response-triage-12.png)
 
 **Alert** is a machine-generated signal: a correlation rule matched a pattern
 in log data and produced a record with a severity level, a source, and some
@@ -55,15 +55,15 @@ detection gap to close. If it turned out to be a noisy false positive, that's
 a tuning task. Resolution without that feedback loop just means the same
 class of incident gets triaged from scratch again next time.
 
-### The honest gap in this lab
+**The honest gap in this lab**<!--h3-->
 
 Wazuh and TheHive/Cortex both run in this lab (`~/securitylab/wazuh-docker`
 for Wazuh; TheHive 5.4 + Cortex 3.1.7 backed by Cassandra 4.1 and
 Elasticsearch 7.17.24 for the case management side), but **they are not wired
 together**. TheHive and Cortex's containers exist and have been built, but
 were stopped/idle during this lab session, and there is no active integration
-— no webhook, no Wazuh-to-TheHive connector, nothing — turning a Wazuh alert
-into a TheHive case automatically. This is a real, documented gap, not a
+— no webhook, no Wazuh-to-TheHive connector, nothing — that turns a Wazuh
+alert into a TheHive case automatically. This is a real, documented gap, not a
 detail being glossed over: today, when Wazuh's rule 100011 or rule 50106
 fires, that alert lives and dies in the Wazuh dashboard's alert list. Nobody
 and nothing opens a case for it. In a production SOC this integration is
@@ -76,7 +76,7 @@ document and reproducing the lab should treat "wire Wazuh alerts into
 TheHive automatically" as an explicit, valuable extension exercise, not
 something to assume already exists.
 
-### When to use a dedicated case management system / when not to
+**When to use a dedicated case management system / when not to**<!--h3-->
 
 **Use one** the moment more than one person needs to work an incident, or the
 moment "what did we do and why" needs to survive longer than someone's memory
@@ -95,7 +95,7 @@ gap is real and worth closing for the sake of completeness and practice, but
 it isn't blocking anything today, precisely because alert volume here is low
 and there's only one person triaging.
 
-## 6.2 Real case walkthroughs
+**6.2 Real case walkthroughs**<!--h2-->
 
 The following walkthroughs are graded by how real they are. Some are fully
 worked runbooks from this lab's actual repos. Some are real alerts that
@@ -104,7 +104,7 @@ explicitly hypothetical — planned but not yet run — and is labeled as such
 throughout; it is included because it teaches what triage *would* look like
 once the missing piece (a Windows VM with telemetry) exists.
 
-### Walkthrough 1: The GUID triage runbook (`detection-engineering/guid-triage/`)
+**Walkthrough 1: The GUID triage runbook (`detection-engineering/guid-triage/`)**<!--h3-->
 
 This is the fullest worked example in the portfolio, built specifically to
 teach triage discipline for a hard identity-security problem: a GUID (a
@@ -154,7 +154,7 @@ The triage verdict is a function of identity resolution + privilege level +
 behavioral deviation, evaluated in that order, and an analyst who skips step
 1 (resolving what the GUID even is) cannot honestly reach any verdict at all.
 
-### Walkthrough 2: The two BEC/phishing cases (`detection-engineering/bec-phishing/`)
+**Walkthrough 2: The two BEC/phishing cases (`detection-engineering/bec-phishing/`)**<!--h3-->
 
 These two cases model the alert-to-verdict path for business email
 compromise, using Sigma rules built against email/identity telemetry.
@@ -201,7 +201,7 @@ highest-signal thing to check first, because attackers can spoof a display
 name trivially but cannot spoof legitimate sending infrastructure without
 actually compromising it.
 
-### Walkthrough 3 (hypothetical — planned, not run yet): T1078.004 and T1059.001
+**Walkthrough 3 (hypothetical — planned, not run yet): T1078.004 and T1059.001**<!--h3-->
 
 The `atomic-red-team-validation` repo contains two case study folders —
 **T1078.004 (Valid Accounts: Cloud Accounts)** and **T1059.001 (Command and
@@ -239,7 +239,7 @@ process spawns from that PowerShell session. This is explicitly presented as
 occurred — the honest state of this lab is that this remains future work,
 tracked as Lab 5 in Part 9.
 
-### Walkthrough 4: The real live-fired alerts from this lab session
+**Walkthrough 4: The real live-fired alerts from this lab session**<!--h3-->
 
 Unlike the previous walkthrough, these two are genuinely real: they fired
 during this lab session, against real (synthetic-but-live) traffic, and
@@ -294,7 +294,7 @@ Wazuh's *built-in* `mysql_log` decoder/rule pipeline (no custom rule needed
   an immediate check of attempt volume and source — a handful of failures
   from one internal IP is very different from hundreds from an external one.
 
-## 6.3 A generic triage runbook template
+**6.3 A generic triage runbook template**<!--h2-->
 
 The structure below is deliberately modeled on the shape of the GUID triage
 runbook — identity resolution first, context and privilege second, behavioral
@@ -302,7 +302,7 @@ deviation third, verdict last — generalized so it applies to *any* new alert
 type, not just identity/GUID alerts. Use this as a starting skeleton when a
 detection fires on something with no existing runbook yet.
 
-### 1. Context and scope
+**1. Context and scope**<!--h3-->
 
 - What exactly fired the alert — which rule ID, which detection logic, what
   raw event triggered it?
@@ -312,7 +312,7 @@ detection fires on something with no existing runbook yet.
   extend the query into (a few minutes before/after) to catch related
   activity the single event doesn't show?
 
-### 2. Initial hypothesis
+**2. Initial hypothesis**<!--h3-->
 
 - State, in one sentence, what this alert is claiming might be happening.
   Being explicit here (rather than jumping straight to evidence-gathering)
@@ -320,7 +320,7 @@ detection fires on something with no existing runbook yet.
   exactly the discipline the GUID runbook enforces by making "resolve the
   GUID's identity" the mandatory first step rather than an optional one.
 
-### 3. Evidence gathering (the "who/what/how many" of triage)
+**3. Evidence gathering (the "who/what/how many" of triage)**<!--h3-->
 
 - **Who/what** is involved — resolve raw identifiers (GUIDs, IPs, hashes,
   usernames) to something meaningful before doing anything else. An
@@ -332,7 +332,7 @@ detection fires on something with no existing runbook yet.
   Pull only what's needed to answer the hypothesis — triage stops here,
   investigation is what happens if more is needed.
 
-### 4. Confirm or deny
+**4. Confirm or deny**<!--h3-->
 
 - Based on steps 1–3 only, reach one of three verdicts: **benign/expected**
   (close with documented reasoning), **needs investigation** (escalate to a
@@ -342,7 +342,7 @@ detection fires on something with no existing runbook yet.
   triage that gets closed without escalation is how real incidents get
   missed.
 
-### 5. Containment decision
+**5. Containment decision**<!--h3-->
 
 - If escalating: does this warrant an immediate containment action (disable
   an account, isolate a host) before the full investigation completes, or
@@ -351,7 +351,7 @@ detection fires on something with no existing runbook yet.
   response — the same reasoning about irreversibility and blast radius
   applies whether the containment action is manual or automated.
 
-### 6. Documentation
+**6. Documentation**<!--h3-->
 
 - Record the verdict and the one or two pieces of evidence that drove it,
   even for a benign close — especially for a benign close, because that's

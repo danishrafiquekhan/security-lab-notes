@@ -1,4 +1,4 @@
-# Part 3.7-3.9: QEMU/QuartzVM/Windows VM, Terraform + Azure, Sigma + KQL (Detection-as-Code)
+**Part 3.7-3.9: QEMU/QuartzVM/Windows VM, Terraform + Azure, Sigma + KQL (Detection-as-Code)**<!--h1-->
 
 This part covers three pieces of the lab that are, on the surface, about
 completely different technical domains — hardware virtualization, cloud
@@ -13,9 +13,9 @@ of the two backends this lab could target. None of that is failure —
 it's exactly the kind of honest state a real, evolving lab is normally in,
 and it's worth teaching as such rather than smoothing over.
 
-## Part 3.7: QEMU, QuartzVM, and the Windows Server VM
+**Part 3.7: QEMU, QuartzVM, and the Windows Server VM**<!--h2-->
 
-### Hypervisor acceleration vs software emulation
+**Hypervisor acceleration vs software emulation**<!--h3-->
 
 **QEMU** **[FREE]** (open source, installed via Homebrew on the lab host)
 is a machine emulator and virtualizer. The distinction that actually
@@ -51,7 +51,7 @@ instruction, not "a slower VM" in the way a resource-constrained
 hardware-accelerated VM is slower — it's an entirely different, much
 heavier execution model.
 
-### The disposable-lab philosophy vs what actually got built
+**The disposable-lab philosophy vs what actually got built**<!--h3-->
 
 **QuartzVM** — a real, open-source (MIT-licensed) Tauri/Rust desktop app
 the user built (github.com/danishrafiquekhan/quartzvm, installable via
@@ -81,7 +81,7 @@ longer-lived asset because Atomic Red Team validation work benefits from
 a stable, already-configured target? Both are legitimate answers; neither
 has been chosen yet.
 
-### Unattended installation via autounattend.xml
+**Unattended installation via autounattend.xml**<!--h3-->
 
 Rather than clicking through Windows Setup interactively, the VM was
 installed **fully unattended** using an `autounattend.xml` answer file.
@@ -118,7 +118,7 @@ sections of the answer file:
   account password and `FirstLogonCommands` (arbitrary commands to run
   automatically the first time a user logs on).
 
-### The real bug: a specialize-pass component name mismatch
+**The real bug: a specialize-pass component name mismatch**<!--h3-->
 
 A real, concrete failure was hit and fixed during this build. The original
 `autounattend.xml` included a component in the **specialize** pass
@@ -155,7 +155,7 @@ after-the-fact can be the more reliable engineering choice, even though
 it's less "pure" than doing everything through the declarative answer
 file.
 
-### Why BIOS/IDE instead of UEFI/virtio
+**Why BIOS/IDE instead of UEFI/virtio**<!--h3-->
 
 The VM was configured with QEMU's `pc` machine type (i440fx chipset, BIOS
 boot — not `q35`, which is the more modern UEFI-capable chipset), and its
@@ -174,7 +174,7 @@ directly for **zero additional driver dependency**, which matters more in
 a first-build context where the goal is "get a working, unattended,
 reproducible install" rather than "get the fastest possible VM."
 
-### When to use this / when NOT to use this
+**When to use this / when NOT to use this**<!--h3-->
 
 Use QEMU with TCG-only emulation when you specifically need a
 cross-architecture guest (x86_64 on ARM64 or vice versa) and can tolerate
@@ -192,9 +192,9 @@ than pretending it's resolved: this VM, as currently configured, needs a
 deliberate decision one way or the other before it's reused heavily,
 particularly given the hardcoded password.
 
-## Part 3.8: Terraform + Azure
+**Part 3.8: Terraform + Azure**<!--h2-->
 
-### State: the core concept, and why remote state matters
+**State: the core concept, and why remote state matters**<!--h3-->
 
 **Terraform** **[FREE]** (open source, HashiCorp) is declarative
 infrastructure-as-code: you describe the infrastructure you want in `.tf`
@@ -224,7 +224,7 @@ backend). Remote state matters for two concrete reasons, not just
   (lost laptop, disk failure — state gone, and with it Terraform's entire
   understanding of what it manages).
 
-### The bootstrap chicken-and-egg problem
+**The bootstrap chicken-and-egg problem**<!--h3-->
 
 A specific, well-known wrinkle that `terraform-labs`' own structure
 acknowledges (its numbered exercises include one specifically for "remote
@@ -241,7 +241,7 @@ configurations to point at it as their backend. This bootstrap step is
 inherently a bit manual/imperative even in an otherwise fully declarative
 workflow, and that's normal, not a flaw in the approach.
 
-### Module composition
+**Module composition**<!--h3-->
 
 Terraform **modules** let a configuration be composed from reusable,
 parameterized units (a "networking module," a "compute module") rather
@@ -252,7 +252,7 @@ variables, output values), implement the resource logic once, and reuse it
 across environments or exercises with different inputs, rather than
 copy-pasting resource blocks.
 
-### Terraform Cloud vs local backend
+**Terraform Cloud vs local backend**<!--h3-->
 
 **Terraform Cloud** **[FREEMIUM]** (HashiCorp's hosted service; a free
 tier exists for small teams, with paid tiers for governance/policy
@@ -270,7 +270,7 @@ wherever you invoke the Terraform CLI (a laptop, a self-managed CI runner),
 which is more work to wire up but keeps everything inside infrastructure
 you already control.
 
-### "Syntax valid" is not "actually deploys correctly" — and none of this has been applied
+**"Syntax valid" is not "actually deploys correctly" — and none of this has been applied**<!--h3-->
 
 This needs to be stated with complete honesty because it's real and
 important: **all seven `terraform-labs` exercise folders pass `terraform
@@ -310,9 +310,9 @@ this portfolio should take that distinction at face value rather than
 assuming "clean Terraform repo" implies "deployed and proven"; the two are
 different claims, and this lab only makes the first one.
 
-![Diagram](../diagrams/03c-tools-qemu-terraform-detection-as-code-8.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03c-tools-qemu-terraform-detection-as-code-8.png)
 
-### When to use this / when NOT to use this
+**When to use this / when NOT to use this**<!--h3-->
 
 Use Terraform (over clicking through the Azure Portal) whenever
 infrastructure needs to be reproducible, reviewable (via pull requests
@@ -328,9 +328,9 @@ lab does, that it has not been applied, and treat that as a concrete next
 step (with the bootstrap backend problem solved first) rather than a
 detail to omit.
 
-## Part 3.9: Sigma + KQL — Detection-as-Code
+**Part 3.9: Sigma + KQL — Detection-as-Code**<!--h2-->
 
-### What Sigma is and why it exists
+**What Sigma is and why it exists**<!--h3-->
 
 **Sigma** **[FREE]** (open source, community-maintained rule format and
 converter toolchain) is a generic, YAML-based signature format for SIEM
@@ -347,7 +347,7 @@ be convertible to whichever backend a given SOC actually runs, without
 each SOC having to invent that logic from scratch in their own platform's
 syntax.
 
-### The real platform-translation problem this lab actually hit
+**The real platform-translation problem this lab actually hit**<!--h3-->
 
 This lab is a genuinely instructive, honest case of where that "convert
 once, run anywhere" promise runs into a real limit. The `detection-
@@ -395,7 +395,7 @@ export mechanism feeding Wazuh, analogous in spirit to the MySQL/Cloudflare
 relays already built) before a native Wazuh rule would even have data to
 match against — and that pipeline does not exist in this lab.
 
-### attack-mapping.csv and MITRE ATT&CK tagging as a discipline
+**attack-mapping.csv and MITRE ATT&CK tagging as a discipline**<!--h3-->
 
 Independent of which backend a given rule targets, `detection-engineering`
 maintains an `attack-mapping.csv` tying each Sigma rule to specific
@@ -412,9 +412,9 @@ beyond a handful of rules — the same reason ATT&CK Navigator-style
 heatmaps are a standard SOC reporting artifact in real security
 programs.
 
-![Diagram](../diagrams/03c-tools-qemu-terraform-detection-as-code-9.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03c-tools-qemu-terraform-detection-as-code-9.png)
 
-### When to use this / when NOT to use this
+**When to use this / when NOT to use this**<!--h3-->
 
 Use Sigma when detection logic genuinely needs to be portable across
 multiple SIEM backends, or when publishing/sharing detection content for

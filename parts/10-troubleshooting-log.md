@@ -1,4 +1,4 @@
-# Part 10: Real Troubleshooting Log
+**Part 10: Real Troubleshooting Log**<!--h1-->
 
 This part is a set of genuine troubleshooting case studies from actually
 building this lab — not illustrative examples. Each one follows the same
@@ -7,9 +7,9 @@ that generalizes past this specific bug. The point of including these at
 all is that this is what real lab-building (and real production
 operations) actually looks like — not a clean sequence of commands that
 worked on the first try, but a series of specific things that broke,
-diagnosed and fixed one at a time.
+were diagnosed, and were fixed one at a time.
 
-## 10.1 The Wazuh certificate generator permissions bug
+**10.1 The Wazuh certificate generator permissions bug**<!--h2-->
 
 **Symptom**: Wazuh 4.9.2 **[FREE]** (Apache 2.0, self-hosted) ships an
 official certificate generation step as part of the `wazuh-docker`
@@ -27,8 +27,9 @@ permissions to that directory as a hardening step — intended to run
 *after* all files are written, but in this run it took effect while two
 certificate files were still outstanding. This left the output directory
 in a half-finished, now-locked state: most of the expected certs
-present, two missing, and the directory no longer writable to let the
-generator finish naturally on a re-run without first fixing permissions.
+present, two missing, and the directory no longer writable — which
+prevented the generator from finishing naturally on a re-run without
+first fixing permissions.
 
 **Root cause**: a permissions-hardening step in the cert generator's run
 sequence executed before, rather than strictly after, all output files
@@ -53,7 +54,7 @@ output with a permissions error, check whether the already-completed
 output is actually sufficient to hand-complete the remaining files before
 assuming the whole run needs to be reset and re-attempted from scratch.
 
-## 10.2 The Windows `autounattend.xml` specialize-pass component error
+**10.2 The Windows `autounattend.xml` specialize-pass component error**<!--h2-->
 
 **Symptom**: during the fully unattended install of the Windows Server
 2022 Evaluation VM (built via raw `qemu-system-x86_64`, BIOS/i440fx
@@ -89,11 +90,11 @@ schema, and it didn't match what Windows Setup expects.
 **Fix**: rather than continue trying to get the exact property-name
 schema for that component right, the component was removed from
 `autounattend.xml` entirely, and the equivalent outcome (firewall
-enabled, RDP allowed) was achieved a simpler, more reliable way: plain
+enabled, RDP allowed) was achieved in a simpler, more reliable way: plain
 `netsh advfirewall` commands run inside `FirstLogonCommands`, which
 execute as ordinary shell commands after the OS has already booted for
-the first time, rather than needing to be expressed as unattend.xml XML
-schema during the specialize pass at all.
+the first time, rather than needing to be expressed in the
+unattend.xml schema during the specialize pass at all.
 
 ```xml
 <!-- Illustrative shape of the FirstLogonCommands replacement — generic
@@ -117,7 +118,7 @@ the same outcome, prefer the imperative path — it fails with an
 ordinary, readable command error instead of an opaque XML-schema parse
 error that only surfaces deep into a lengthy install process.
 
-## 10.3 The Cloudflare API token permission-scoping saga
+**10.3 The Cloudflare API token permission-scoping saga**<!--h2-->
 
 **Symptom**: getting `wrangler` (Cloudflare's CLI) authenticated with
 enough permission to actually deploy to Cloudflare Pages **[FREEMIUM]**
@@ -166,7 +167,7 @@ precisely-scoped custom tokens for cases that actually need least
 privilege (a CI pipeline, a shared automation credential), not for
 one-person interactive use.
 
-## 10.4 The `wrangler tail` deployment-ID binding limitation
+**10.4 The `wrangler tail` deployment-ID binding limitation**<!--h2-->
 
 **Symptom**: `wrangler pages deployment tail` (used to stream live
 request logs from the Cloudflare Pages Function middleware logging every
@@ -214,7 +215,7 @@ it's watching, and that expiry needs to be handled explicitly (automatic
 re-binding, alerting on staleness, or both) or it will be discovered the
 hard way, as a silent gap.
 
-## 10.5 The MySQL log-format mismatch with Wazuh's decoder
+**10.5 The MySQL log-format mismatch with Wazuh's decoder**<!--h2-->
 
 **Symptom**: MySQL 8.0 **[FREE]** (community edition; Oracle also sells a
 paid Enterprise edition with additional features not used here) was
@@ -269,7 +270,7 @@ the majority of the real work involved, and it is worth budgeting time
 for that step explicitly rather than assuming a built-in decoder/rule
 pair means the log source will "just work" once the file is being read.
 
-## 10.6 The repo-wide markdown-header convention drift
+**10.6 The repo-wide markdown-header convention drift**<!--h2-->
 
 **Symptom**: across this portfolio's public repos, there is a
 consistently applied rule of never using literal `#` markdown headers —

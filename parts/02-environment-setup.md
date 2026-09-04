@@ -1,4 +1,4 @@
-# Part 2: Environment Setup End-to-End
+**Part 2: Environment Setup End-to-End**<!--h1-->
 
 This section walks through setting up the host machine for this lab from a
 completely clean macOS install, on Apple Silicon. Every command below is
@@ -16,7 +16,7 @@ comfortably hold all of them at once. Part of "setting up the environment"
 is accepting that you will be starting and stopping stacks deliberately,
 not leaving everything running.
 
-## 2.1 Toolchain overview
+**2.1 Toolchain overview**<!--h2-->
 
 Before the command-by-command walkthrough, here is the shape of what you're
 installing and why it's layered this way. Each layer depends on the one
@@ -24,7 +24,7 @@ below it being healthy — a Docker Desktop that hasn't been launched yet
 will make every container command below it fail in a way that looks like a
 Docker problem but is actually a "the daemon isn't running" problem.
 
-![Diagram](../diagrams/02-environment-setup-2.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/02-environment-setup-2.png)
 
 The important read of this diagram: Homebrew is the single install path
 for almost everything else. Docker Desktop and QEMU are peers — both sit
@@ -36,7 +36,7 @@ via npm) don't depend on Docker or QEMU at all — they're a separate,
 parallel install track that happens to also come through Homebrew (except
 `wrangler`, which comes through npm).
 
-## 2.2 Homebrew
+**2.2 Homebrew**<!--h2-->
 
 Homebrew **[FREE]** (open source, no paid tier) is macOS's de facto package
 manager and the entry point for nearly everything else in this section.
@@ -75,7 +75,7 @@ broken install but is actually just a missing PATH entry.
 is worth running any time something installed via brew "isn't found" —
 its output is usually specific enough to fix directly.
 
-## 2.3 Docker Desktop
+**2.3 Docker Desktop**<!--h2-->
 
 Docker Desktop **[FREEMIUM]** (free for personal use and small business
 under Docker's current terms; paid subscription required for larger
@@ -143,7 +143,7 @@ references `docker-compose` (hyphenated), substitute `docker compose`
 (space) throughout; the hyphenated tool is deprecated and may not even be
 present on a fresh Docker Desktop install.
 
-A second real constraint worth flagging now, because it shapes how you'll
+A second real constraint to note now, because it shapes how you'll
 operate this lab day to day: with 16GB of host RAM, running Wazuh (3
 containers) + TheHive's stack (4 containers, including two JVM-heavy
 services — Cassandra and Elasticsearch) + LocalStack + Suricata + MySQL
@@ -154,7 +154,7 @@ getting OOM-killed or the whole Mac becomes sluggish; it's not unusual to
 need to explicitly `docker compose down` one stack before bringing another
 one up on a 16GB machine.
 
-## 2.4 QEMU
+**2.4 QEMU**<!--h2-->
 
 QEMU **[FREE]** (GPL, no paid tier) is the machine emulator/virtualizer
 used in this lab to build the Windows Server 2022 evaluation VM from raw
@@ -207,7 +207,7 @@ qemu-system-x86_64 \
   -boot d
 ```
 
-Two deliberate choices worth flagging at the setup-planning stage, before
+Two deliberate choices are worth calling out at the setup-planning stage, before
 you even get to the install: `-machine pc` (the older i440fx BIOS-boot
 chipset, not `q35`/UEFI) and `-drive ...,if=ide` (IDE disk/CD-ROM
 controllers, not virtio) were both chosen for maximum guest driver
@@ -221,7 +221,7 @@ falls back to TCG (software) emulation rather than hardware-accelerated
 virtualization — genuinely slow, expect over an hour for a full Windows
 Server install, not a misconfiguration to debug.
 
-## 2.5 Terraform and Azure CLI
+**2.5 Terraform and Azure CLI**<!--h2-->
 
 Terraform **[FREE]** (open source CLI; Terraform Cloud has a free tier used
 in one of the `terraform-labs` exercises, with paid tiers above it) and the
@@ -282,7 +282,7 @@ deliberate, stated gap, not an oversight in this walkthrough — `apply`
 needs its own review of the spending cap and MFA state before it's run for
 real, which is outside the scope of "get your environment set up."
 
-## 2.6 GitHub CLI (gh)
+**2.6 GitHub CLI (gh)**<!--h2-->
 
 GitHub CLI **[FREE]** is used throughout this lab's workflow for pushing
 the portfolio repos and managing pull requests/issues from the terminal
@@ -318,7 +318,7 @@ scopes. From here, `gh repo clone`, `gh pr create`, `gh repo create
 --public`, etc. all work without further credential setup — this is how
 this lab's public portfolio repos got created and pushed.
 
-## 2.7 Node.js, npm, and wrangler
+**2.7 Node.js, npm, and wrangler**<!--h2-->
 
 Node.js and npm **[FREE]** are needed for one specific purpose in this lab:
 running `wrangler`, Cloudflare's CLI, which manages the Cloudflare Pages
@@ -346,9 +346,9 @@ Authenticate wrangler to Cloudflare:
 wrangler login
 ```
 
-This opens a browser-based OAuth consent flow. Worth calling out explicitly
-because it was a real, documented lesson from building this lab: this
-OAuth login flow grants wrangler a broad, pre-defined set of scopes
+This opens a browser-based OAuth consent flow. This is worth spelling out
+explicitly because it was a real, documented lesson from building this lab:
+the OAuth login flow grants wrangler a broad, pre-defined set of scopes
 sufficient for typical Pages/Workers management out of the box. The
 alternative — hand-creating a scoped Cloudflare API token via the
 dashboard's custom token permission-group UI — is easy to under-scope by
@@ -377,7 +377,7 @@ receiving traffic and needs to be restarted against the new ID. There is no
 setup fix for this; it's a real, current limitation of `wrangler pages
 deployment tail` to plan around operationally.
 
-## 2.8 Python 3, and why venvs per project (not a global environment)
+**2.8 Python 3, and why venvs per project (not a global environment)**<!--h2-->
 
 Python 3 is used across this lab for the relay scripts (MySQL log relay,
 Cloudflare traffic relay) and the `llm-triage`/`log-correlation` tooling in
@@ -433,7 +433,7 @@ A `.gitignore` entry for `.venv/` in every project is worth calling out
 explicitly here too — venvs are large, machine-specific, and trivially
 regenerable from `requirements.txt`, so they should never be committed.
 
-## 2.9 Verify your setup — full checklist
+**2.9 Verify your setup — full checklist**<!--h2-->
 
 Run this block top to bottom in a fresh terminal after completing every
 step above. Each line should succeed and print a version or status, not an

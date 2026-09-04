@@ -1,4 +1,4 @@
-# Part 7: SOAR & Automation Principles
+**Part 7: SOAR & Automation Principles**<!--h1-->
 
 SOAR — Security Orchestration, Automation, and Response — is the practice of
 turning repeatable response actions into code instead of a runbook a human
@@ -12,7 +12,7 @@ gates all specified — but none of them are deployed, because no real
 Sentinel tenant exists in this lab. Section 7.2 covers exactly what that
 honestly means as a portfolio artifact.
 
-## 7.1 When to automate vs. keep a human in the loop
+**7.1 When to automate vs. keep a human in the loop**<!--h2-->
 
 The real principle, and the one these three playbooks are each built around,
 is a function of two variables: **reversibility** and **blast radius**.
@@ -43,9 +43,9 @@ they're useful to study together rather than in isolation:
 | disable-compromised-user | Reversible, but disrupts a real person immediately | High (one user's access) | Yes — Teams approval |
 | isolate-infected-device | Reversible (selective isolation), un-isolation is the risky reverse | High (one device's network access) | Partial — isolate is automated, un-isolate is manual-only |
 
-## 7.2 Playbook design walkthroughs
+**7.2 Playbook design walkthroughs**<!--h2-->
 
-### Playbook 1: auto-enrich-signin-alert — no approval gate, and why
+**Playbook 1: auto-enrich-signin-alert — no approval gate, and why**<!--h3-->
 
 **What it does.** Triggered by a Sentinel sign-in risk alert, this playbook
 performs read-only lookups: resolving the signing-in user's normal
@@ -54,7 +54,7 @@ geolocation, pulling recent sign-in history for the same account, and
 attaching all of it back onto the alert as enrichment before a human analyst
 ever looks at it.
 
-![Diagram](../diagrams/07-soar-automation-principles-13.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/07-soar-automation-principles-13.png)
 
 **Why no approval gate is needed here.** Every action this playbook takes is
 a *read*. It queries state; it changes nothing. There is no scenario in
@@ -70,7 +70,7 @@ manually. This maps directly to the "evidence gathering" stage of the
 generic triage runbook in Part 6.3 — this playbook exists to make that stage
 faster, not to replace the "confirm or deny" judgment that comes after it.
 
-### Playbook 2: disable-compromised-user — Teams approval gate, and why here specifically
+**Playbook 2: disable-compromised-user — Teams approval gate, and why here specifically**<!--h3-->
 
 **What it does.** Triggered manually by an analyst (or by a high-confidence
 automated detection, depending on deployment posture) once a user account is
@@ -82,7 +82,7 @@ Graph). Critically, **before either action executes**, the playbook posts an
 approval card into a Microsoft Teams channel and blocks until a designated
 approver responds.
 
-![Diagram](../diagrams/07-soar-automation-principles-14.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/07-soar-automation-principles-14.png)
 
 **Why an approval gate here specifically.** This is the playbook that sits
 squarely in the "irreversible-ish, affects a real user's ability to work"
@@ -102,7 +102,7 @@ technically run unattended. The gate is not there because the automation
 is hard to build; it's there because the cost of an automated false
 positive here is categorically higher than in Playbook 1.
 
-### Playbook 3: isolate-infected-device — selective isolation, and why un-isolation is manual-only
+**Playbook 3: isolate-infected-device — selective isolation, and why un-isolation is manual-only**<!--h3-->
 
 **What it does.** Triggered by a Defender for Endpoint detection, this
 playbook would isolate a device suspected of infection using Defender for
@@ -116,7 +116,7 @@ own management channel, which can leave a device isolated but unmanageable —
 unable to receive the un-isolate command remotely, unable to keep reporting
 telemetry that would help confirm the infection is actually contained.
 
-![Diagram](../diagrams/07-soar-automation-principles-15.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/07-soar-automation-principles-15.png)
 
 **Why selective is the safer automated default.** Selective isolation is a
 narrower, more conservative action than full isolation — it removes the
@@ -148,7 +148,7 @@ sides of what looks like "the same" action: isolate and un-isolate are
 logical opposites, but they are not symmetric in risk, so they are not
 treated symmetrically in the design.
 
-### What "designed but not deployed" honestly means
+**What "designed but not deployed" honestly means**<!--h3-->
 
 None of these three playbooks have executed a single real action, because
 there is no real Sentinel tenant in this lab to deploy them into — only a
@@ -168,13 +168,13 @@ about where human gates belong," not "here is evidence this automation
 works in production," and those are genuinely different, both-valuable
 claims that should never be blurred together.
 
-## 7.3 A general SOAR playbook design checklist
+**7.3 A general SOAR playbook design checklist**<!--h2-->
 
 Use this checklist structure when designing a new playbook, whether or not
 it will ever be deployed. It's the same structure underlying all three
 playbooks above, made explicit and reusable.
 
-### Trigger conditions
+**Trigger conditions**<!--h3-->
 
 - What exact event/alert fires this playbook? Be specific — a vague trigger
   ("suspicious activity") either never fires or fires constantly; a precise
@@ -185,7 +185,7 @@ playbooks above, made explicit and reusable.
   doesn't need the same automation investment as one that fires fifty
   times a day.
 
-### Required permissions/scopes (principle of least privilege for the automation's own identity)
+**Required permissions/scopes (principle of least privilege for the automation's own identity)**<!--h3-->
 
 - What is the *minimum* Graph API / Defender API / cloud provider scope this
   playbook's service identity needs to do its job — not what's convenient,
@@ -203,7 +203,7 @@ playbooks above, made explicit and reusable.
   exactly the scopes granted. Scope minimally for that reason alone, not
   just for tidiness.
 
-### Approval gates
+**Approval gates**<!--h3-->
 
 - Does this action's reversibility and blast-radius combination (per 7.1)
   cross the line where a human needs to explicitly approve before
@@ -213,7 +213,7 @@ playbooks above, made explicit and reusable.
   `disable-compromised-user`'s design treats a timeout the same as a
   rejection: no action taken, escalate manually).
 
-### Rollback path
+**Rollback path**<!--h3-->
 
 - If this action executes and turns out to be wrong, what's the exact
   reverse action, and is it itself automated or manual? State this even
@@ -223,7 +223,7 @@ playbooks above, made explicit and reusable.
   reverse of a gated or ungated action is not automatically the same
   category as the forward action).
 
-### What stays manual, and why
+**What stays manual, and why**<!--h3-->
 
 - Explicitly list what this playbook does *not* automate, and state the
   reason — not as an afterthought, but as a first-class design decision.

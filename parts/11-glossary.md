@@ -1,10 +1,10 @@
-# Part 11: Glossary
+**Part 11: Glossary**<!--h1-->
 
 Alphabetical reference for terms and acronyms used throughout this
 document. Definitions are written to be precise and specific to how the
 term is actually used in this lab, not generic dictionary text.
 
-## A
+**A**<!--h2-->
 
 **Answer file (`autounattend.xml`)** — an XML file that supplies Windows
 Setup with pre-determined install-time answers (disk partitioning,
@@ -24,7 +24,7 @@ this lab both to map detection rules to the behavior they catch
 (`attack-mapping.csv`) and to structure adversary-emulation test plans
 (Atomic Red Team).
 
-## B
+**B**<!--h2-->
 
 **BEC (Business Email Compromise)** — a fraud technique where an
 attacker compromises or spoofs a business email account/identity (often
@@ -34,7 +34,7 @@ credential/gift-card request. Distinct from generic phishing in that it
 usually skips malware entirely and relies purely on social engineering
 and a convincing sender identity.
 
-## C
+**C**<!--h2-->
 
 **Cortex** — the analyzer/responder automation engine paired with
 TheHive, used to run enrichment and response actions (e.g. reputation
@@ -46,7 +46,7 @@ allowed to load content from, used as a defense-in-depth control against
 cross-site scripting and data-injection attacks by restricting what a
 compromised or injected script is actually allowed to do.
 
-## D
+**D**<!--h2-->
 
 **Decoder (Wazuh)** — see "Decoder vs. rule."
 
@@ -77,7 +77,7 @@ through to the backend unmodified — used to observe and tune a ruleset's
 false-positive rate against real traffic before switching to prevention
 mode. See Part 8.3.
 
-## F
+**F**<!--h2-->
 
 **False positive / false negative** — a **false positive** is an alert
 that fires on activity that was not actually malicious or was not the
@@ -87,7 +87,7 @@ enough of them causes real alerts to get ignored — "alert fatigue"). A
 caught but didn't (a silent, undetected gap — generally the more
 dangerous of the two failure modes, since nothing draws attention to it).
 
-## G
+**G**<!--h2-->
 
 **GUID (Globally Unique Identifier)** — a 128-bit identifier
 (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` format) used, among many other
@@ -98,7 +98,7 @@ identity investigations often need to resolve a GUID back to a
 human-readable identity as an explicit triage step (see the
 `guid-triage` runbook referenced in the Identity Security section).
 
-## H
+**H**<!--h2-->
 
 **HSTS (HTTP Strict-Transport-Security)** — an HTTP response header that
 tells a browser to only ever connect to this host over HTTPS for a
@@ -112,14 +112,14 @@ Windows — lets a hypervisor (like QEMU) use the CPU's own virtualization
 extensions instead of software emulation, which is dramatically faster
 but only works when guest and host CPU architectures match.
 
-## I
+**I**<!--h2-->
 
 **IaC (Infrastructure as Code)** — managing infrastructure (cloud
 resources, networking, compute) by describing it in version-controlled
 configuration files (e.g. Terraform HCL) and applying that description
-through a tool, rather than manually configuring resources by hand
-through a console/UI — enables review, repeatability, and a diffable
-history of infrastructure changes.
+through a tool, rather than configuring resources by hand through a
+console/UI — enables review, repeatability, and a diffable history of
+infrastructure changes.
 
 **IdP (Identity Provider)** — a system that authenticates users and
 issues identity assertions/tokens that other applications (relying
@@ -132,7 +132,7 @@ address, file hash, domain name, email address) associated with known or
 suspected malicious activity, used to search for or match against
 telemetry to find evidence of that activity elsewhere.
 
-## J
+**J**<!--h2-->
 
 **JML (Joiner-Mover-Leaver)** — the identity lifecycle framework covering
 the three key transition points of an identity's relationship with an
@@ -142,7 +142,7 @@ organization: joining (provisioning access for a new hire), moving
 identity security gaps is a broken or incomplete Mover or Leaver process
 leaving stale, unnecessary access in place.
 
-## K
+**K**<!--h2-->
 
 **KQL (Kusto Query Language)** — the query language used by Microsoft
 Sentinel (and Azure Data Explorer/Log Analytics more broadly) to search
@@ -150,7 +150,7 @@ and analyze log data — the language this lab's `detection-engineering`
 repo's Sentinel-facing detection content is written in, targeting tables
 like `SigninLogs` and `AuditLogs`.
 
-## L
+**L**<!--h2-->
 
 **Localfile (Wazuh config term)** — a `<localfile>` block in Wazuh's
 agent/manager configuration (`ossec.conf`) that tells Wazuh to monitor a
@@ -166,7 +166,7 @@ logs and the relayed Cloudflare Pages traffic logs.
 Cloudflare Pages traffic is instead captured via `wrangler ... tail`
 rather than Logpush.
 
-## M
+**M**<!--h2-->
 
 **MFA (Multi-Factor Authentication)** — requiring more than one
 independent proof of identity to authenticate (typically something you
@@ -175,14 +175,20 @@ app or hardware key) — a baseline control against credential-only
 compromise, and required on this lab's Azure account specifically as a
 condition of doing any IaC work against it.
 
-## O
+**O**<!--h2-->
 
 **OIDC (OpenID Connect)** — an identity/authentication layer built on top
 of OAuth 2.0, adding a standardized way for a client to verify a user's
 identity and obtain basic profile information via an ID token — commonly
 used alongside or instead of SAML for modern application sign-in flows.
 
-## P
+**P**<!--h2-->
+
+**PIM (Privileged Identity Management)** — a Microsoft Entra ID feature
+for just-in-time, time-bound activation of privileged roles, rather than
+standing/permanent privileged role assignment — reduces the window an
+elevated-privilege identity is actually usable, and creates an
+approval/audit trail each time a role is activated.
 
 **Playbook** — in this document's usage, a documented, structured
 response procedure for handling a specific type of security event or
@@ -191,19 +197,13 @@ distinct from a SOAR *automation* playbook (see `sentinel-soar-playbooks`),
 though the two terms overlap: an analyst-facing playbook can be the basis
 a SOAR automation is later built from.
 
-**PIM (Privileged Identity Management)** — a Microsoft Entra ID feature
-for just-in-time, time-bound activation of privileged roles, rather than
-standing/permanent privileged role assignment — reduces the window an
-elevated-privilege identity is actually usable, and creates an
-approval/audit trail each time a role is activated.
-
 **Prematch (Wazuh decoder term)** — see "Decoder vs. rule."
 
 **Prevention mode (WAF)** — a WAF operating mode where a request matching
 a blocking rule is actually blocked in real time, as opposed to detection
 mode's log-only behavior. See Part 8.3.
 
-## R
+**R**<!--h2-->
 
 **RBAC (Role-Based Access Control)** — an access control model where
 permissions are granted to roles, and identities are granted membership
@@ -211,13 +211,19 @@ in roles, rather than permissions being assigned to individual identities
 directly — makes access easier to reason about and audit at scale than
 per-identity permission assignment.
 
-## S
+**S**<!--h2-->
 
 **SAML (Security Assertion Markup Language)** — an XML-based standard for
 exchanging authentication and authorization assertions between an IdP
 and a service provider, commonly used for enterprise single sign-on —
 older than OIDC but still widely deployed, especially in enterprise SaaS
 integrations.
+
+**SIEM (Security Information and Event Management)** — a platform that
+centrally collects, normalizes, and correlates log/event data from many
+sources and applies detection logic to it to generate alerts — Wazuh and
+Microsoft Sentinel are both SIEMs (Wazuh also markets itself as XDR; see
+below).
 
 **Sigma** — a generic, platform-agnostic format for writing detection
 rules, designed to be convertible into the native query language of many
@@ -226,19 +232,13 @@ KQL, and others) from a single source rule — this lab's
 `detection-engineering` repo authors detection logic in Sigma first, then
 maintains KQL conversions for Sentinel's schema.
 
-**SIEM (Security Information and Event Management)** — a platform that
-centrally collects, normalizes, and correlates log/event data from many
-sources and applies detection logic to it to generate alerts — Wazuh and
-Microsoft Sentinel are both SIEMs (Wazuh also markets itself as XDR; see
-below).
-
 **SOAR (Security Orchestration, Automation and Response)** — a platform
 or capability for automating and orchestrating incident response
 actions — enrichment, containment, notification — often chained together
 into playbooks triggered by a SIEM alert. TheHive/Cortex here, and the
 Sentinel Logic Apps playbook *designs*, are both SOAR-category tooling.
 
-## T
+**T**<!--h2-->
 
 **TCG (Tiny Code Generator, QEMU context)** — QEMU's built-in software
 CPU emulation backend, used when hardware-accelerated virtualization
@@ -260,7 +260,7 @@ an adversary operates, spanning MITRE ATT&CK's tactic/technique
 hierarchy down to the specific, granular implementation details
 ("procedures") a particular threat actor or campaign actually used.
 
-## W
+**W**<!--h2-->
 
 **WAF (Web Application Firewall)** — a filtering layer, typically sitting
 in front of a web application or API, that inspects HTTP(S) requests
@@ -276,7 +276,7 @@ here because it is the third member of the same acceleration-backend
 family referenced when discussing why TCG was necessary on this
 particular host.
 
-## X
+**X**<!--h2-->
 
 **XDR (Extended Detection and Response)** — a SIEM-adjacent product
 category that extends detection and response beyond log correlation

@@ -1,8 +1,8 @@
-# Part 4: Identity Security Deep Dive
+**Part 4: Identity Security Deep Dive**<!--h1-->
 
 Identity is the thread that runs through almost every other part of this lab. The detection rules in `detection-engineering` are mostly sign-in and audit-log rules. The IAM scripts in `intune-endpoint-health-platform` are Microsoft Graph API calls against directory objects. The `aws-identity-detection` repo is entirely about one identity misusing its own permissions. Even the phishing cases in `bec-phishing` are, underneath the email delivery mechanics, an attack on trust in an identity. This part exists to explain identity security properly — not as a glossary of terms, but as the reasoning a working analyst or engineer actually needs, grounded in what this lab's real content does and doesn't cover.
 
-## 4.1 Core identity concepts: what an "identity" actually is
+**4.1 Core identity concepts: what an "identity" actually is**<!--h2-->
 
 Before anything else, it's worth being precise about what "identity" means in a security context, because the word gets used loosely and that looseness causes real confusion later — Section 4.3 exists almost entirely because of it.
 
@@ -13,7 +13,7 @@ Before anything else, it's worth being precise about what "identity" means in a 
 
 This separation is the single most important mental model in identity security, because almost every real-world identity incident is a failure in exactly one of these two stages, and the fix is different depending on which one failed. A password-spray attack (see the `password-spray.yml` Sigma rule discussed in Part 5) is an authentication-layer attack — the attacker is trying to *become* an identity. A privilege escalation, like the one the `aws-identity-detection` repo detects (an IAM principal creating a new user and immediately attaching `AdministratorAccess` to it), is an authorization-layer attack — the attacker already *is* an identity, and is manipulating what that identity (or a new one it creates) is allowed to do.
 
-### Identity object types
+**Identity object types**<!--h3-->
 
 Not every identity is a human. A directory (Entra ID, AWS IAM, or any other identity store) holds several distinct kinds of principal, and detection/response logic has to treat them differently:
 
@@ -21,9 +21,9 @@ Not every identity is a human. A directory (Entra ID, AWS IAM, or any other iden
 - **Group** — not itself an identity that authenticates, but a container that grants authorization by membership. Role assignments are very commonly made to groups rather than individual users specifically so that adding/removing a user from a group is the access-control action, not editing role assignments directly. This matters for the JML lifecycle in 4.2 — group membership is usually the actual lever that access reviews and provisioning workflows pull.
 - **Service principal (Entra ID) / IAM role or user (AWS)** — a non-human identity representing an application, script, or automated workflow. This is the type the Graph API scripts in this lab authenticate *as themselves being run by* (via device code flow, from a human's session) but is also the type an *app registration* creates when it needs to call an API unattended.
 - **Managed identity (Azure-specific)** — a service principal that Azure creates and rotates the credential for automatically, tied to the lifetime of an Azure resource (a VM, a Function App, a Logic App). The entire point of a managed identity is that there is no secret for a human to manage, leak, or forget to rotate — Azure handles the credential material internally. The `sentinel-soar-playbooks` designs (disable-a-compromised-user, isolate-a-device) are written assuming the underlying Logic App would authenticate to Graph API and Defender for Endpoint via a managed identity rather than a stored client secret, precisely to avoid adding a new secret-management burden on top of an incident-response automation.
-- **Application / App Registration object (Entra ID)** — the *definition* of an app (its permissions, redirect URIs, certificates), distinct from the service principal that represents an instance of it actually operating inside a specific tenant. This distinction is not academic — it is the exact distinction the GUID triage methodology in 4.3 depends on, because "App Registration exists but no corresponding Service Principal in this tenant" and "Service Principal exists" are two different, diagnostic states.
+- **Application / App Registration object (Entra ID)** — the *definition* of an app (its permissions, redirect URIs, certificates), distinct from the service principal that represents an instance of it actually operating inside a specific tenant. This distinction is not academic — it is the exact distinction the GUID triage methodology in 4.3 depends on, because "App Registration exists but no corresponding Service Principal in this tenant" and "Service Principal exists" are two different diagnostic states.
 
-### Entra ID / Azure AD vs AWS IAM: two different vocabularies for the same problem
+**Entra ID / Azure AD vs AWS IAM: two different vocabularies for the same problem**<!--h3-->
 
 This lab has real content in both worlds — `detection-engineering` and `intune-endpoint-health-platform` are Entra ID-native, `aws-identity-detection` is AWS IAM-native — so it's worth translating between them explicitly rather than assuming one vocabulary transfers cleanly to the other. They solve the same problem (who can do what) with different primitives:
 
@@ -41,7 +41,7 @@ The AWS side has one architectural idea that Entra ID doesn't have a direct equi
 
 Entra ID's rough analog to a trust policy is Conditional Access plus cross-tenant access settings (covered in 4.4) — but it's evaluated at a different layer (sign-in time, continuously, with real-time signals like device compliance and location) rather than being a static document attached to the identity itself. Neither model is "better" in the abstract; they reflect the different shapes of the two clouds' control planes.
 
-## 4.2 The Joiner-Mover-Leaver (JML) lifecycle
+**4.2 The Joiner-Mover-Leaver (JML) lifecycle**<!--h2-->
 
 **Joiner-Mover-Leaver** is the standard identity governance framework for the three moments in an identity's life where access should change:
 
@@ -51,13 +51,13 @@ Entra ID's rough analog to a trust policy is Conditional Access plus cross-tenan
 
 JML matters as a foundational concept because it's the framework that turns "identity security" from a point-in-time login problem into a lifecycle problem. Almost every stale-access finding an auditor produces — orphaned accounts, over-privileged movers, leavers who still have a valid session token three weeks after their last day — is a JML process gap, not a technology failure. The technology (Entra ID, IAM) will happily do exactly what it's told; JML is about whether what it's told is still correct.
 
-### A real failure mode from this lab: unverified contractor provisioning
+**A real failure mode from this lab: unverified contractor provisioning**<!--h3-->
 
 The `intune-endpoint-health-platform` work includes a documented real process-gap pattern from the Joiner stage specifically: contractor accounts were being provisioned without an enforced identity-verification step first. In other words, the provisioning process had a step that was *supposed* to happen (verify who this contractor actually is before an account exists for them) but nothing in the technical process actually required it — it depended on a human doing it correctly, every time, without the system checking. This is a textbook Joiner-stage gap: the failure isn't in a login flow or a permission boundary, it's upstream of both, in the moment an identity is created in the first place.
 
 This got caught, escalated, and led to an inventory cleanup — which is the useful part to actually learn from, because the *shape* of the fix matters more than the specific incident.
 
-### Detective vs preventive controls, and why this distinction is the whole lesson
+**Detective vs preventive controls, and why this distinction is the whole lesson**<!--h3-->
 
 The way this gap was caught was an **audit script that flagged accounts missing verification attributes** — after the fact, on a schedule, looking at what already existed. That is a **detective control**: it finds problems that have already happened. It's valuable — genuinely, an audit script that surfaces "these N contractor accounts have no recorded identity-verification step" is far better than not knowing — but it is not the same thing as fixing the problem, and it's important to be precise about why.
 
@@ -67,25 +67,25 @@ A **preventive control** stops the gap from being creatable in the first place �
 
 The reason this distinction is worth teaching carefully, not just naming: a detective control is usually *faster and cheaper to build* than a preventive one — an audit script that runs a Graph query and flags missing attributes (structurally similar to `orphaned_account_detection.py` in this same repo, which flags enabled accounts with no manager assigned by walking `/users` and checking `/users/{id}/manager` for a 404) can be written in an afternoon. Rebuilding a provisioning workflow so it structurally cannot create an unverified account is a real engineering and process change, often touching whatever system originates the Joiner event (HR system, ticketing system, or a manual request form) — and that's exactly why organizations under time pressure land on the detective control and stop there, and why "we have a script that catches this" quietly becomes the permanent answer instead of the interim one. Recognizing that pattern — and pushing past it — is a real, teachable piece of identity governance judgment, not a theoretical nuance.
 
-![Diagram](../diagrams/04-identity-security-deep-dive-10.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/04-identity-security-deep-dive-10.png)
 
-### JML and Mover/Leaver in this lab's other content
+**JML and Mover/Leaver in this lab's other content**<!--h3-->
 
 The Leaver stage is the direct motivation for `orphaned_account_detection.py`: an enabled account with no manager assigned is exactly the kind of account a Leaver process should have caught and disabled, but didn't — nobody owns it, which in practice means nobody notices it going stale, being targeted, or quietly retaining access it no longer needs. The script's own output deliberately caveats this ("no manager isn't proof of orphaning on its own — service accounts and some external guests legitimately have none") which is itself good JML practice: a detective control's output is a worklist for a human to triage, not an automatic verdict.
 
 The Mover stage doesn't have dedicated tooling in this lab yet, but it's the same underlying pattern as `privileged_role_access_review.py`: a Mover who changed teams six months ago and never had their old privileged role assignment removed looks, from Graph's perspective, identical to a Joiner who was over-provisioned from day one — a directory role member whose actual current job doesn't justify the access. The access-review script catches both by asking the same question (stale sign-in activity on a privileged role member) regardless of which JML stage produced the mismatch.
 
-## 4.3 GUID/Object triage methodology
+**4.3 GUID/Object triage methodology**<!--h2-->
 
 This is one of the most concrete, real pieces of investigative methodology in this whole lab, and it's worth explaining *why* the problem exists architecturally before walking through the runbook itself — the "why" is what makes the methodology make sense instead of feeling like an arbitrary checklist.
 
-### Why this ambiguity exists
+**Why this ambiguity exists**<!--h3-->
 
 In Azure and Entra ID, GUIDs (128-bit UUIDs, formatted like `3b8e4a2f-6c1d-4a9e-8b2a-1d2e3f4a5b6c`) are the universal identifier format — and they are used for *both* identity objects and non-identity resource references, with **no type information encoded in the GUID itself**. A GUID that identifies a user object, a GUID that identifies an App Registration, a GUID that identifies an Azure DevOps Collection, and a GUID that identifies a service connection inside a DevOps project are all, structurally, the exact same kind of value — 32 hex characters in the same five-group pattern. There is nothing about the string `3b8e4a2f-6c1d-4a9e-8b2a-1d2e3f4a5b6c` itself that tells you which of those it is. The only way to know is to ask the system that's supposed to know it — and different systems own different GUID namespaces, so you may have to ask more than one.
 
 This is why a detection that fires on "unrecognized GUID accessing a resource" is, on its own, an *incomplete* alert — it correctly flags that a GUID has been seen that isn't in your known-identity inventory, but "not in your known-identity inventory" has at least two very different explanations: (a) this really is an unrecognized identity — a real security concern — or (b) this is a legitimate non-identity resource reference (a DevOps Collection ID, a service connection ID, an application's internal resource GUID) that was never going to appear in an identity inventory in the first place, because it was never an identity. Triage exists to tell those two apart, and doing it wrong in either direction has a real cost: false-negative (waving off a real unrecognized identity as "probably just a resource ID") is a missed intrusion; false-positive (escalating a routine DevOps service connection as an unknown identity) is wasted analyst time and, at scale, alert fatigue that erodes trust in the detection.
 
-### The real investigative methodology
+**The real investigative methodology**<!--h3-->
 
 The `guid-triage` runbook in `detection-engineering` documents the actual sequence an analyst works through to resolve this ambiguity, roughly in order of "cheapest and most likely to resolve it" to "authoritative":
 
@@ -98,13 +98,13 @@ The `guid-triage` runbook in `detection-engineering` documents the actual sequen
 
 A 404 here isn't "inconclusive" — it's the actual finding. It means: whatever this GUID is, it is *not* an identity, because if it were, the tenant's own identity directory would know about it. That reframes the original alert from "unrecognized identity accessing a resource" to "a non-identity resource ID got picked up by log parsing/correlation logic that assumed every GUID in that log field was an identity" — which is a detection-tuning problem (see the `falsepositives` discussion in Part 5.4), not a security incident.
 
-![Diagram](../diagrams/04-identity-security-deep-dive-11.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/04-identity-security-deep-dive-11.png)
 
-### Why this matters beyond one runbook
+**Why this matters beyond one runbook**<!--h3-->
 
 The deeper lesson is that **identity detection logic is only as good as its assumption that a GUID in a given log field is actually an identity** — and that assumption is often built into a query or correlation rule without anyone explicitly stating it, because in the common case it's true. Azure's architecture doesn't give you a free type check on a GUID; you have to build one, either into the detection itself (pre-filtering known non-identity GUID namespaces, where that's feasible) or into the triage process that handles what the detection produces. This runbook is the second approach, done properly: cheap checks first, an authoritative check (Graph's 200/404) as the tiebreaker, and the result of that tiebreaker treated as real evidence, not a shrug.
 
-## 4.4 Conditional Access, MFA, and PIM
+**4.4 Conditional Access, MFA, and PIM**<!--h2-->
 
 These three controls are often talked about together because they all sit at the boundary between "an identity is authenticated" and "an identity gets to use a privilege," but they answer different questions.
 
@@ -116,13 +116,13 @@ These three controls are often talked about together because they all sit at the
 
 The reason PIM matters as a real control, not a compliance checkbox, is the attack-surface math: a compromised credential for a PIM-eligible-but-not-activated account gets an attacker nothing privileged — they'd additionally have to trigger and survive an activation flow (MFA, approval, justification, all of which can be logged and alerted on) to actually get the privilege. `privileged_role_access_review.py` in this lab is directly downstream of this idea, even without PIM configured: it flags directory-role members who haven't signed in for 30+ days, because a standing privileged role assignment on an account nobody is actively using is exactly the risk profile PIM is designed to eliminate — the role is a liability sitting there with nothing to show for it. The honest state of this lab, per its own README, is that the PIM walkthrough itself is one of the not-yet-done items in the IAM catalog — it needs a real Entra ID P2-licensed tenant (available via the free M365 Developer Program E5 trial) that hasn't been set up yet, so PIM here is explained as the correct control to reach for, not demonstrated end-to-end.
 
-## 4.5 RBAC and least privilege
+**4.5 RBAC and least privilege**<!--h2-->
 
 **Role-Based Access Control (RBAC)** means authorization decisions are made by assigning identities (or groups) to *roles* — named bundles of permissions — rather than granting individual permissions directly to individual identities one at a time. The value is manageability: reviewing "who has the Contributor role" is tractable; reviewing "what is the union of every individually-granted permission across every identity" is not, at any real scale.
 
 **Least privilege** is the principle that an identity should hold only the permissions it actually needs to do its job, no more — and RBAC is the mechanism most identity systems use to try to approximate that in practice, imperfectly, because roles are necessarily coarser than any one person's actual job.
 
-### Role assignment scope in Azure
+**Role assignment scope in Azure**<!--h3-->
 
 A critical, easy-to-get-wrong detail in Azure RBAC is that a role assignment isn't just "this role" — it's "this role, at this scope," and Azure's scopes nest hierarchically:
 
@@ -138,7 +138,7 @@ A role assigned at a higher scope is inherited by everything beneath it. Assigni
 
 The `terraform-labs` repo's own operational discipline is a direct, if implicit, RBAC-scope-adjacent lesson: its README documents authenticating via `az login` rather than long-lived secrets, and running `terraform destroy` after every exercise — both of which are about minimizing the *time window and blast radius* that any credential or resource footprint exists for, which is the same underlying instinct as scoping a role assignment as narrowly as workable rather than as broadly as convenient.
 
-### Common over-privileging failure modes
+**Common over-privileging failure modes**<!--h3-->
 
 - **Scope creep by convenience** — assigning at subscription or resource-group scope because it's one fewer decision than assigning at the individual resource, even when the actual need is one resource.
 - **Role creep over time** — an identity accumulates role assignments across multiple projects/teams as it moves through an organization (the Mover problem from 4.2) and nothing is ever removed, only added.
@@ -146,7 +146,7 @@ The `terraform-labs` repo's own operational discipline is a direct, if implicit,
 - **Standing privileged roles instead of PIM-eligible ones** (4.4) — RBAC and PIM are complementary, not competing: RBAC defines *what* a role can do, PIM (where configured) governs *when* an identity actually holds it.
 - **Group-based assignment drift** — a role assigned to a group is only as tightly scoped as that group's membership is actively curated; a stale group with broad role assignment is a single point where JML failures (4.2) and RBAC failures compound each other.
 
-## 4.6 Federation and identity providers (IdP)
+**4.6 Federation and identity providers (IdP)**<!--h2-->
 
 An **Identity Provider (IdP)** is the system that authenticates a user and asserts their identity to other applications, so that individual applications don't each have to build and secure their own password store. **Federation** is the practice of trusting an external IdP's assertion rather than maintaining a separate identity for the same person in every system — sign in once to the IdP, and downstream applications trust that session.
 
@@ -157,7 +157,7 @@ Two protocols dominate how that trust assertion is actually carried:
 
 Neither protocol is intrinsically "more secure" — both, done correctly (validated signatures, checked audiences/issuers, short-lived tokens), provide a solid trust boundary; both, done incorrectly (accepting unsigned assertions, not validating the audience claim), are trivially bypassable. The practical difference is more about ecosystem fit: SAML shows up more in enterprise/legacy SSO integrations, OIDC in modern API-driven and mobile-first architectures.
 
-### Entra ID as an IdP, and why Auth0 was planned as a second one
+**Entra ID as an IdP, and why Auth0 was planned as a second one**<!--h3-->
 
 This lab's identity content — the Sigma rules, the Graph API scripts, the Conditional Access/PIM discussion above — is almost entirely Entra ID-native, for the practical reason that Entra ID is the IdP this lab actually has meaningful, if incomplete, access to (via the free M365 Developer Program path referenced in `intune-endpoint-health-platform`'s README).
 
@@ -165,18 +165,18 @@ This lab's identity content — the Sigma rules, the Graph API scripts, the Cond
 
 Being honest about this, per how this lab is actually documented: **Auth0 was never finished.** A dashboard URL was shared, but no working Machine-to-Machine application was ever actually configured — no Domain, Client ID, or Client Secret exist for it in this lab. **Okta**'s free developer tier was discussed as an alternative and not pursued, in favor of Auth0, which itself then also wasn't finished. This is an honest, open gap, not a built thing dressed up as one — worth stating plainly rather than implying Auth0 content exists anywhere in this lab's detections when it doesn't. The value of naming it here is instructional: it's a real, common failure mode in lab and portfolio work generally (an ambitious second-platform expansion gets identified as valuable, gets as far as "account exists," and stalls before configuration) and it's more useful to a reader to see that named than papered over.
 
-## 4.7 BEC and phishing as identity-adjacent threats
+**4.7 BEC and phishing as identity-adjacent threats**<!--h2-->
 
 Business Email Compromise (BEC) and phishing are usually filed under "email security," but they belong in an identity security discussion because of what they're actually attacking: **not a login flow, but trust in an identity itself** — specifically, a recipient's trust that a message genuinely came from the sender it claims to. That's identity spoofing/impersonation, functionally the same underlying problem as a stolen credential, just executed without ever touching the target's authentication system at all. This lab's `bec-phishing` folder (in `detection-engineering`) documents two real cases that illustrate two distinct ways that trust gets forged.
 
-### Case 1: invoice fraud via authenticated bulk-mail services
+**Case 1: invoice fraud via authenticated bulk-mail services**<!--h3-->
 
 The first case is invoice fraud delivered through legitimate, authenticated bulk-mail services — services like SendGrid or Mailchimp. The mechanism worth understanding closely: these services maintain their *own* sender reputation, built from the aggregate behavior of every legitimate customer sending through their infrastructure, and their outbound mail correctly passes SPF and DKIM for *their own* sending domain (because it genuinely originates from their infrastructure, with their own authentication configured correctly — nothing about the transport is forged). An attacker who signs up for one of these services and sends a fraudulent invoice through it inherits that platform's good reputation and correctly-passing authentication, which is exactly what lets the message bypass reputation-based and basic authentication-based filtering that would otherwise catch a more obviously spoofed message. The fraud isn't in the transport layer at all — SPF/DKIM genuinely pass, because the mail genuinely came from SendGrid/Mailchimp's servers, exactly as configured. The fraud is entirely in the *content*: an invoice with altered payment details, sent to look like it came from a known vendor, riding on infrastructure that authentication checks were never going to catch because those checks were never lying about where the mail came from.
 
-### Case 2: executive impersonation via external personal email
+**Case 2: executive impersonation via external personal email**<!--h3-->
 
 The second case is executive impersonation from an external personal email address, where the SPF/DKIM/DMARC picture is the opposite of case 1: **misalignment**, not clean pass. This is the more classically recognizable BEC pattern — an email claiming to be from a company executive, sent from a lookalike or unrelated external address, asking for an urgent wire transfer or gift-card purchase, exploiting organizational trust in a name and title rather than any technical trust mechanism. Here, DMARC alignment checks (does the visible From: domain match what SPF/DKIM actually authenticated?) are the relevant control — a message claiming to be from `ceo@company.com` but actually sent from an unrelated personal domain fails alignment, and a DMARC policy set to reject or quarantine (rather than just monitor) on failure is the concrete technical control that stops this specific pattern, if the organization's DMARC policy is actually enforced rather than left at `p=none`.
 
-### Why these are identity security problems, not just email problems
+**Why these are identity security problems, not just email problems**<!--h3-->
 
 The reason both cases belong in an identity security discussion, not a separate "email security" bucket, is the throughline from 4.1: **authentication is "who are you, and can you prove it," and both of these attacks are entirely about defeating that question for a human reader instead of for a login system.** Case 1 defeats it by riding on infrastructure whose technical authentication is genuinely valid, while the represented identity (the vendor) is not who actually sent the content. Case 2 defeats it by impersonating a name and title the recipient trusts, from an address that fails the technical authentication check that exists specifically to catch that. Neither attacker needed a password, a token, or an MFA bypass — they needed the recipient to *believe* an identity claim, which is the exact same target as a credential-stealing phish, reached by a different route. Framed against 4.1's authentication/authorization split, both cases are pure authentication-layer attacks aimed at a human verifier instead of a machine one — which is precisely why technical controls alone (SPF/DKIM/DMARC enforcement) address case 2 but only partially blunt case 1, and why case 1 ultimately still needs human judgment or content-based detection, not just sender authentication, to catch.

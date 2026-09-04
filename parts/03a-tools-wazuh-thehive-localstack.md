@@ -1,4 +1,4 @@
-# Part 3.1-3.3: Wazuh, TheHive + Cortex, LocalStack
+**Part 3.1-3.3: Wazuh, TheHive + Cortex, LocalStack**<!--h1-->
 
 This section covers three of the tools running in this lab's local stack
 (`~/securitylab/`) in real depth: Wazuh (the SIEM/XDR at the center of the
@@ -10,9 +10,9 @@ paid/free reality, concrete when-to-use/when-not-to guidance, the real
 install and configuration steps as used in this lab, real troubleshooting,
 and how the tool fits into the lab's overall data flow.
 
-## 3.1 Wazuh
+**3.1 Wazuh**<!--h2-->
 
-### What it is and the principle behind it
+**What it is and the principle behind it**<!--h3-->
 
 Wazuh **[FREE]** (Apache 2.0, fully self-hosted, no paid tier — the
 commercial offering is paid support/cloud hosting, not a feature-gated
@@ -37,22 +37,22 @@ of the box — used directly in this lab, see below). This is fundamentally
 different from what a cloud identity provider's audit log looks like — a
 deeply nested JSON object like an Entra ID sign-in log, with dozens of
 fields describing conditional access policy evaluation results, risk
-detections, and device compliance state. Wazuh *can* ingest arbitrary JSON
-(it auto-flattens top-level JSON keys into `data.<field>` for rule
-matching when you set `<log_format>json</log_format>` on a log source —
-used in this lab for the Cloudflare Pages traffic pipeline), but it has no
-purpose-built understanding of what a sign-in log's fields *mean* the way
-Microsoft Sentinel's `SigninLogs`/`AuditLogs` table schema does, with
-native KQL operators tuned for exactly that data.
+detections, and device compliance state. Wazuh *can* ingest arbitrary JSON — it auto-flattens top-level JSON keys
+into `data.<field>` for rule matching when you set
+`<log_format>json</log_format>` on a log source, which is used in this lab
+for the Cloudflare Pages traffic pipeline. But it has no purpose-built
+understanding of what a sign-in log's fields *mean* the way Microsoft
+Sentinel's `SigninLogs`/`AuditLogs` table schema does, with native KQL
+operators tuned for exactly that data.
 
-### Paid vs free tier reality
+**Paid vs free tier reality**<!--h3-->
 
 Fully free and open source — no artificial tier limits, no feature paywall,
 no user-count cap. The only "paid" surface is Wazuh Inc.'s optional
 commercial support/cloud-hosted offering, not used in this lab. This is a
 big part of why it was chosen for the live lab at all.
 
-### When to use this / when NOT to use this
+**When to use this / when NOT to use this**<!--h3-->
 
 Use Wazuh when the telemetry is genuinely host/network-shaped: endpoint
 logs, file integrity events, application logs with a known text/line
@@ -76,7 +76,7 @@ logs, not for the deeply nested, policy-evaluation-heavy shape of a cloud
 IdP's sign-in event. Forcing an Entra sign-in log through Wazuh's JSON
 auto-decode and writing pattern-matching rules against `data.*` fields
 would technically run, but it would not reflect how anyone actually builds
-identity detection content in practice — that content is written against
+identity detection content in practice. That content is written against
 Sentinel's `SigninLogs`/`AuditLogs` schema and KQL because that's the tool
 built for that telemetry shape, with native understanding of conditional
 access results, risk levels, and location/device correlation that Wazuh
@@ -87,16 +87,16 @@ representative choice — even though it means the live Wazuh lab and the
 identity detection content in the portfolio don't currently talk to each
 other. That gap is real and stated plainly, not smoothed over.
 
-### Internal architecture
+**Internal architecture**<!--h3-->
 
-![Diagram](../diagrams/03a-tools-wazuh-thehive-localstack-3.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03a-tools-wazuh-thehive-localstack-3.png)
 
 The manager is the decode-and-detect engine; the indexer (OpenSearch-based)
 is the storage/search backend; the dashboard is the web UI on top of the
 indexer. All three run as separate containers in the official single-node
 `wazuh-docker` compose setup, communicating over the compose network.
 
-### Install and configuration as used in this lab
+**Install and configuration as used in this lab**<!--h3-->
 
 The lab uses the official `wazuh-docker` repository's single-node compose
 setup, cloned to `~/securitylab/wazuh-docker`:
@@ -169,7 +169,7 @@ users config) before it's exposed to anything beyond localhost, and even
 for a localhost-only lab, leaving defaults in place is a habit worth
 breaking early.
 
-### The MySQL pipeline, as a concrete worked example
+**The MySQL pipeline, as a concrete worked example**<!--h3-->
 
 This lab stood up a real MySQL 8.0 container (`soc-lab-mysql`) specifically
 as a monitored/attacked target, with general query logging and error
@@ -205,7 +205,7 @@ above: because MySQL log format is squarely inside Wazuh's home turf, this
 integration needed a small format-adapter script and zero custom detection
 logic.
 
-### The Cloudflare Pages pipeline, as a second worked example
+**The Cloudflare Pages pipeline, as a second worked example**<!--h3-->
 
 A real public Cloudflare Pages site (`soc-lab-target.pages.dev`,
 Cloudflare Pages **[FREEMIUM]** — static hosting is free, but continuous
@@ -225,7 +225,7 @@ request to `/login.html`, framed as "possible scanner/credential-testing
 activity" given the page does nothing real. Verified live with real curl
 traffic producing real alerts.
 
-### Troubleshooting
+**Troubleshooting**<!--h3-->
 
 - **Containers never reach `healthy`**: check `docker compose logs
   wazuh.indexer` first — indexer startup failures (often cert-related, see
@@ -249,7 +249,7 @@ traffic producing real alerts.
   multiple stacks running, this is usually the first place to check memory
   usage (`docker stats`).
 
-### How Wazuh fits into the overall lab architecture
+**How Wazuh fits into the overall lab architecture**<!--h3-->
 
 Wazuh is the lab's central SIEM — the place host/network/application
 telemetry converges, gets decoded, and gets rule-matched into alerts. As of
@@ -259,9 +259,9 @@ identified as the next real sources to wire in (neither done yet). It does
 not currently forward alerts anywhere — TheHive/Cortex are built but not
 wired to consume Wazuh alerts, which is a stated, real gap, not an oversight.
 
-## 3.2 TheHive + Cortex
+**3.2 TheHive + Cortex**<!--h2-->
 
-### What it is and the principle behind it
+**What it is and the principle behind it**<!--h3-->
 
 TheHive **[FREE]** (TheHive 5 is open source under AGPL for self-hosted
 use — StrangeBee, the company behind it, also sells a commercial
@@ -290,7 +290,7 @@ footprint than a typical single-database app, but one that maps directly to
 "store structured case data durably, and make it fully searchable" as two
 genuinely different jobs.
 
-### Paid vs free tier reality
+**Paid vs free tier reality**<!--h3-->
 
 Self-hosted TheHive 5 and Cortex are both free and fully functional with
 no artificial feature gating for this lab's purposes — the commercial
@@ -298,7 +298,7 @@ offering from StrangeBee is a hosted/managed version plus enterprise
 support, not a more-capable version of the self-hosted software for
 core case-management functionality.
 
-### When to use this / when NOT to use this
+**When to use this / when NOT to use this**<!--h3-->
 
 Use TheHive+Cortex when you actually have a volume or complexity of alerts
 that benefits from structured case tracking and repeatable enrichment
@@ -322,11 +322,11 @@ thing to note in a portfolio as planned/next-step work, but running it
 disconnected from real alerts on a resource-constrained 16GB host with no
 current benefit is not worth the standing memory cost.
 
-### Internal architecture
+**Internal architecture**<!--h3-->
 
-![Diagram](../diagrams/03a-tools-wazuh-thehive-localstack-4.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03a-tools-wazuh-thehive-localstack-4.png)
 
-### Install and configuration as used in this lab
+**Install and configuration as used in this lab**<!--h3-->
 
 TheHive's stack was brought up previously via Docker Compose, defining
 Cassandra, Elasticsearch, Cortex, and TheHive as four services on a shared
@@ -364,7 +364,7 @@ whatever password is set during that first-run wizard needs to be treated
 with the same seriousness as any other credential, not left as a
 throwaway lab password if this stack is ever exposed beyond localhost.
 
-### Troubleshooting
+**Troubleshooting**<!--h3-->
 
 - **Elasticsearch fails to start / exits immediately**: Elasticsearch 7.x
   has real host-level requirements — most commonly `vm.max_map_count`
@@ -390,7 +390,7 @@ throwaway lab password if this stack is ever exposed beyond localhost.
   (Cassandra and Elasticsearch are both JVM-heavy) on a 16GB host running
   multiple stacks at once than architecture emulation overhead.
 
-### How TheHive + Cortex fits into the overall lab architecture
+**How TheHive + Cortex fits into the overall lab architecture**<!--h3-->
 
 Intended role: the case-management/response layer downstream of Wazuh —
 Wazuh alerts would forward into TheHive as cases, Cortex would enrich
@@ -400,9 +400,9 @@ output. This is the most honestly-stated gap in the lab's architecture and
 worth presenting as exactly that in this document — a real next step, not
 a finished integration.
 
-## 3.3 LocalStack
+**3.3 LocalStack**<!--h2-->
 
-### What it is and the principle behind it
+**What it is and the principle behind it**<!--h3-->
 
 LocalStack **[FREEMIUM]** (the Community edition used in this lab is free
 and open source, covering core services like IAM, S3, and CloudTrail
@@ -418,7 +418,7 @@ need (and for cost/safety reasons, usually do not want) to do that against
 a billed, real AWS account, especially when deliberately generating
 privilege-escalation-shaped activity for test purposes.
 
-### Paid vs free tier reality
+**Paid vs free tier reality**<!--h3-->
 
 LocalStack Community **[FREE]** covers the core services this lab's
 `aws-identity-detection` work needs — IAM, and enough surrounding service
@@ -426,7 +426,7 @@ emulation to exercise privilege-escalation-relevant API calls. LocalStack
 Pro is a paid subscription adding broader service coverage and features
 like advanced persistence — not required for this lab's stated purpose.
 
-### When to use this / when NOT to use this
+**When to use this / when NOT to use this**<!--h3-->
 
 Use LocalStack when you want to exercise AWS API call patterns and their
 logging/detection surface without touching a real, billed AWS account —
@@ -452,9 +452,9 @@ against a real AWS account — the same "don't overclaim" discipline applied
 elsewhere in this document (e.g. terraform-labs never having been `apply`'d
 for real).
 
-### Internal architecture
+**Internal architecture**<!--h3-->
 
-![Diagram](../diagrams/03a-tools-wazuh-thehive-localstack-5.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03a-tools-wazuh-thehive-localstack-5.png)
 
 LocalStack's architecture is a single container exposing one edge endpoint
 (by default port 4566) that internally routes requests to the correct
@@ -463,7 +463,7 @@ the client's perspective it looks like one AWS-shaped endpoint, which is
 exactly the point: existing AWS CLI/SDK code needs only an endpoint-URL
 override to run against it, not a rewrite.
 
-### Install and configuration as used in this lab
+**Install and configuration as used in this lab**<!--h3-->
 
 ```bash
 cd ~/securitylab/aws-identity-detection-lab   # illustrative path matching this lab's layout convention
@@ -502,7 +502,7 @@ the real risk of a copy-pasted command accidentally running against a real
 AWS account because the default profile was active. This is a genuine
 operational safety habit worth stating plainly, not a hypothetical concern.
 
-### Troubleshooting
+**Troubleshooting**<!--h3-->
 
 - **`docker info`/connection-refused on port 4566**: same root cause
   category as Docker Desktop issues elsewhere in this document — confirm
@@ -525,7 +525,7 @@ operational safety habit worth stating plainly, not a hypothetical concern.
   — worth explicitly distinguishing from the QEMU case so the two aren't
   conflated as "the same kind of slow."
 
-### How LocalStack fits into the overall lab architecture
+**How LocalStack fits into the overall lab architecture**<!--h3-->
 
 LocalStack is scoped narrowly and intentionally: it exists solely to
 support the `aws-identity-detection` repo's local lab, letting AWS

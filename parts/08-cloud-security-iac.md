@@ -1,4 +1,4 @@
-# Part 8: Cloud Security & Infrastructure as Code
+**Part 8: Cloud Security & Infrastructure as Code**<!--h1-->
 
 This part covers the `terraform-labs` and `aws-identity-detection` repos —
 the cloud/IaC-facing half of this lab. Two facts matter for reading this
@@ -9,7 +9,7 @@ AWS side is deliberately tested against a local emulator, not a real AWS
 account. That is not a weakness to apologize for — it is itself a security
 decision, and this part explains why.
 
-## 8.1 Terraform + Azure: security principles beyond "how IaC works"
+**8.1 Terraform + Azure: security principles beyond "how IaC works"**<!--h2-->
 
 Terraform **[FREE]** (the open-source CLI, Mozilla Public License 2.0) is
 used here as the IaC tool of record. It is worth separating two things
@@ -19,7 +19,7 @@ tiers (covered in Part 12). The `terraform-labs` repo's exercise 04 is
 specifically a Terraform Cloud integration exercise, but the CLI itself —
 what actually runs `plan`/`apply`/`destroy` — costs nothing.
 
-### Secrets hygiene in IaC: why `.tfstate` and `.tfvars` must never be committed
+**Secrets hygiene in IaC: why `.tfstate` and `.tfvars` must never be committed**<!--h3-->
 
 Two files are the recurring landmines in any Terraform repo, and both are
 landmines for the same underlying reason: Terraform's whole job is to
@@ -60,7 +60,7 @@ state Azure backend) — but even then, defaulting to "gitignore it anyway"
 costs nothing and removes an entire class of future accidents if the repo
 visibility ever changes.
 
-### gitleaks as a second-layer safety net — and its real, documented limitation
+**gitleaks as a second-layer safety net — and its real, documented limitation**<!--h3-->
 
 `gitleaks` **[FREE]** (open source, Apache 2.0) is a secret-scanning tool
 that greps commits (and optionally full history) for patterns that look
@@ -94,7 +94,7 @@ push (see Part 10's confidentiality audit case study) — a scanner
 tuned for common secret shapes will always have blind spots for the
 shapes it wasn't tuned for.
 
-### Least-privilege auth for IaC: `az login` vs. long-lived service principal secrets
+**Least-privilege auth for IaC: `az login` vs. long-lived service principal secrets**<!--h3-->
 
 Terraform needs to authenticate to Azure to do anything. There are two
 common ways to give it credentials, and they carry very different risk
@@ -143,7 +143,7 @@ example) — and even then, scope its role assignment as narrowly as the
 pipeline's actual job requires, not `Owner` on the subscription out of
 convenience.
 
-## 8.2 Case study: security-header baseline at the Application Gateway
+**8.2 Case study: security-header baseline at the Application Gateway**<!--h2-->
 
 `terraform-labs` exercise 06 defines Application Gateway **[PAID]** (Azure
 Application Gateway is a billed, consumption-plus-instance-priced Azure
@@ -200,7 +200,7 @@ resource "azurerm_application_gateway" "main" {
 }
 ```
 
-### The principle: centralize the control at a chokepoint
+**The principle: centralize the control at a chokepoint**<!--h3-->
 
 The reason this exercise exists is not "how do you set an HTTP header in
 Terraform" — it is a specific architectural argument for **where** a
@@ -223,9 +223,9 @@ shared enforcement point scales better than distributed, per-team
 discipline, because it does not depend on every team remembering to do
 the right thing every time a new service is deployed.
 
-![Diagram](../diagrams/08-cloud-security-iac-16.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/08-cloud-security-iac-16.png)
 
-### The honest limitation
+**The honest limitation**<!--h3-->
 
 A gateway rewrite rule normalizes what *leaves* the gateway. It cannot
 verify two things that actually matter for whether the control is doing
@@ -255,7 +255,7 @@ time — the gateway just makes sure *something* reasonable is applied
 everywhere by default, instead of nothing being applied anywhere until an
 app team gets around to it.
 
-## 8.3 Case study: WAF-in-front-of-APIM, detection mode pilot
+**8.3 Case study: WAF-in-front-of-APIM, detection mode pilot**<!--h2-->
 
 `terraform-labs` exercise 07 puts an Azure Web Application Firewall
 **[PAID]** (bundled with Application Gateway's WAF SKU or as a policy
@@ -263,7 +263,7 @@ attached to Front Door — billed, no free tier) in front of Azure API
 Management (APIM) **[PAID]**, configured in **detection mode** rather
 than prevention mode.
 
-### Detection mode vs. prevention mode
+**Detection mode vs. prevention mode**<!--h3-->
 
 A WAF evaluates every request against a ruleset (commonly the OWASP Core
 Rule Set) looking for patterns associated with SQL injection, XSS, path
@@ -278,7 +278,7 @@ operating modes:
   backend unmodified. Nothing about the live traffic changes; the only
   output is a log entry saying "this rule would have fired here."
 
-### Why this staged-rollout pattern matters
+**Why this staged-rollout pattern matters**<!--h3-->
 
 This is a genuinely important, transferable security engineering
 principle, not a WAF-specific quirk: **any new enforcement control should
@@ -310,7 +310,7 @@ acceptable level does the policy get flipped to prevention mode — at
 which point blocking real traffic is a calculated, informed decision
 instead of a blind bet.
 
-![Diagram](../diagrams/08-cloud-security-iac-17.png)
+![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/08-cloud-security-iac-17.png)
 
 **When to use this / when NOT to use this**: detection mode is the right
 starting point for *any* new WAF policy, or any change to an existing
@@ -330,7 +330,7 @@ against live traffic in this lab yet. What is real here is the design
 decision to build the exercise around a staged rollout instead of a
 straight-to-prevention deployment.
 
-## 8.4 AWS side: IAM privilege escalation detection against LocalStack
+**8.4 AWS side: IAM privilege escalation detection against LocalStack**<!--h2-->
 
 The `aws-identity-detection` repo pairs AWS IAM privilege-escalation
 detection content with a local lab built on LocalStack **[FREEMIUM]**
@@ -339,7 +339,7 @@ S3, and Lambda; the paid Pro tier adds more services and features like
 persistent state across restarts and additional AWS API coverage — the
 community tier is what this lab uses).
 
-### IAM privilege escalation: what the detections are looking for
+**IAM privilege escalation: what the detections are looking for**<!--h3-->
 
 AWS IAM privilege escalation is a well-documented class of technique
 where a principal with a seemingly limited set of permissions uses those
@@ -358,7 +358,7 @@ are roughly twenty-plus documented IAM privesc methods in the public
 research this space is built on), not just watching for any single
 suspicious-looking call in isolation.
 
-### Why LocalStack instead of a real AWS account for this kind of testing
+**Why LocalStack instead of a real AWS account for this kind of testing**<!--h3-->
 
 Testing privilege-escalation *techniques* — not just detections for
 them, but actually exercising the technique to confirm the detection
