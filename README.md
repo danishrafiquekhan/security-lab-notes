@@ -5,10 +5,8 @@ The complete reference for how everything else in this portfolio actually works 
 Start here if you want the full picture, or jump straight to whichever part is relevant. Each repo elsewhere in this portfolio links back to the specific part(s) that explain the principles behind what's in it.
 
 **Download the whole thing as one document**
-- [Word (.docx)](download/security-lab-knowledge-doc.docx)
-- [PDF](download/security-lab-knowledge-doc.pdf)
 
-Both are ~95 pages / ~46,000 words, generated from the same source as the parts below, with all 18 diagrams embedded and a full table of contents.
+Get it from **[Releases → v1.0](https://github.com/danishrafiquekhan/security-lab-notes/releases/tag/v1.0)** — Word (.docx) and PDF, ~95 pages / ~46,000 words, all 18 diagrams embedded, full table of contents. Same content as the parts below, assembled into one file.
 
 **Or read it part by part**
 
