@@ -80,11 +80,13 @@ this document depends on.
 
 - Wazuh dashboard reachable at `https://localhost` in a browser (self-signed
   cert — browser will warn, accept to proceed).
-- Default login `admin` / `SecretPassword` — documented here explicitly as
-  needing to be changed before this stack is ever exposed beyond localhost;
-  it was left as default for this local-only lab session, which is fine for
-  a lab bound to localhost and unacceptable for anything reachable
-  externally.
+- Default login `admin` / `SecretPassword` has actually been changed in
+  this lab — not a trivial fix, since `admin` is a reserved OpenSearch
+  security-plugin account that rejects direct password-change API calls,
+  and a plain restart doesn't apply an `internal_users.yml` edit to an
+  already-initialized cluster. The real fix needed the indexer's own
+  `hash.sh` (generate a new bcrypt hash) plus `securityadmin.sh` (push it
+  into the running cluster's security index) — see Part 10.
 - Indexer API reachable on port `9200`.
 
 **What it teaches**<!--h3-->

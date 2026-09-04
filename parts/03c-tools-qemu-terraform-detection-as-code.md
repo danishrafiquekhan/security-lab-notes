@@ -382,8 +382,8 @@ detection; it's a rule that looks plausible in a rules file and would
 fire on nothing, ever, in this environment. That would be *fake* coverage
 — content that exists to look complete rather than to actually detect
 anything — and this lab's standard, demonstrated consistently elsewhere
-(the honest "stopped/idle" labels on Suricata/TheHive/LocalStack, the
-"never applied" label on Terraform), is to say plainly what's real and
+(the honest "stopped by default"/"idle" labels on TheHive and LocalStack,
+the "never applied" label on Terraform), is to say plainly what's real and
 what isn't rather than paper over the gap. So: the Sigma/KQL content stays
 written for Sentinel's schema, because that's the platform it's actually
 correct for, and it is documented as Sentinel-target content, not

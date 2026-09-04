@@ -2,9 +2,9 @@
 
 This section covers three of the tools running in this lab's local stack
 (`~/securitylab/`) in real depth: Wazuh (the SIEM/XDR at the center of the
-lab), TheHive + Cortex (the SOAR/case-management layer, built but not yet
-wired to Wazuh), and LocalStack (AWS emulation for the
-`aws-identity-detection` local lab). For each, this section covers what the
+lab), TheHive + Cortex (the SOAR/case-management layer, which now actually
+receives cases from Wazuh alerts, though it sits stopped by default), and
+LocalStack (AWS emulation for the `aws-identity-detection` local lab). For each, this section covers what the
 tool actually is and the architectural principle behind it, the honest
 paid/free reality, concrete when-to-use/when-not-to guidance, the real
 install and configuration steps as used in this lab, real troubleshooting,
@@ -160,20 +160,26 @@ OpenSearch cluster initialization.
 
 Access the dashboard at `https://localhost` (self-signed cert — the
 browser will warn, this is expected for a local lab) and the indexer API
-directly at `:9200`. **The default credentials are `admin` /
-`SecretPassword`.** This is explicitly and deliberately documented here as
-a "change this" item, not a real secret — any real or long-running
-deployment of this stack must change the default indexer/dashboard
-credentials (Wazuh documents the process via its `wazuh-indexer` internal
-users config) before it's exposed to anything beyond localhost, and even
-for a localhost-only lab, leaving defaults in place is a habit worth
-breaking early.
+directly at `:9200`. **The default credentials, `admin` / `SecretPassword`,
+have actually been changed** — this was not a trivial fix. `admin` is a
+reserved OpenSearch security-plugin account, and it rejects direct
+password-change API calls; editing `internal_users.yml` alone also isn't
+enough, because that file only seeds a cluster's security state on first
+initialization and has no effect on a cluster that's already running. The
+real fix required generating a new bcrypt password hash with the indexer's
+own `hash.sh` utility, then pushing that hash into the running cluster's
+security index directly with `securityadmin.sh` — a plain container
+restart alone changes nothing, since restarting doesn't re-run the
+first-init seeding step. See Part 10 for the full troubleshooting
+narrative of getting this right.
 
 **The MySQL pipeline, as a concrete worked example**<!--h3-->
 
 This lab stood up a real MySQL 8.0 container (`soc-lab-mysql`) specifically
-as a monitored/attacked target, with general query logging and error
-logging both enabled. Wazuh ships built-in decoders and rules for MySQL's
+as a monitored/attacked target, with error logging always on and general
+query logging now toggled on only for the duration of a test scenario
+(see Part 3.5 for why — it started out always-on and hit 13MB from a few
+minutes of testing). Wazuh ships built-in decoders and rules for MySQL's
 log format already —
 `ruleset/decoders/0150-mysql_decoders.xml` and
 `ruleset/rules/0295-mysql_rules.xml` — so no custom Wazuh rule was written
@@ -234,10 +240,13 @@ traffic producing real alerts.
 - **Cert-generator permission errors**: covered above — clear the certs
   directory, ensure it's writable, rerun the generator before `docker
   compose up`.
-- **Default credentials**: `admin`/`SecretPassword` must be treated as a
-  "day one, change this" item — worth doing even before you consider the
-  lab "done," since it's a five-minute fix and a real bad habit to leave in
-  place.
+- **Default credentials**: `admin`/`SecretPassword` have now actually been
+  changed in this lab — not a five-minute fix in practice, since `admin` is
+  a reserved OpenSearch account that rejects direct password-change calls
+  and a plain restart doesn't apply an `internal_users.yml` edit to an
+  already-initialized cluster; the real fix needed `hash.sh` (generate a
+  new bcrypt hash) plus `securityadmin.sh` (push it into the running
+  cluster's security index) — see Part 10.
 - **JSON log source producing no alerts**: confirm `<log_format>json</log_format>`
   is set (not `syslog`) on that specific `<localfile>` block, and confirm
   the custom rule's XPath/field references match the actual
@@ -253,11 +262,14 @@ traffic producing real alerts.
 
 Wazuh is the lab's central SIEM — the place host/network/application
 telemetry converges, gets decoded, and gets rule-matched into alerts. As of
-this document, it consumes MySQL logs and Cloudflare Pages traffic, with
-Suricata network IDS output and a Wazuh agent on the Windows Server VM both
-identified as the next real sources to wire in (neither done yet). It does
-not currently forward alerts anywhere — TheHive/Cortex are built but not
-wired to consume Wazuh alerts, which is a stated, real gap, not an oversight.
+this document, it consumes MySQL logs, Cloudflare Pages traffic, Suricata
+network IDS alerts, and Auth0 System Log events — four live, verified
+sources — with a Wazuh agent on the Windows Server VM identified as the
+next real source to wire in (not done yet). It also now forwards alerts
+onward: a custom `custom-thehive` integration turns real Wazuh alerts
+(filtered by rule group) into real TheHive cases, closing what used to be
+this document's most honestly-stated gap — see 3.2 below for the full
+story, including why TheHive/Cortex still don't run continuously.
 
 **3.2 TheHive + Cortex**<!--h2-->
 
@@ -290,6 +302,59 @@ footprint than a typical single-database app, but one that maps directly to
 "store structured case data durably, and make it fully searchable" as two
 genuinely different jobs.
 
+**TheHive + Cortex now actually receive cases**<!--h3-->
+
+This is a real, verified change from the earlier state of this document,
+where TheHive/Cortex sat idle and were listed as a "built but not wired"
+gap. A custom Wazuh integration — `custom-thehive` / `custom-thehive.py` —
+now turns real Wazuh alerts into real TheHive cases. It follows Wazuh's
+own wrapper-script convention for external integrations, because Wazuh
+ships no built-in TheHive integration the way it does for some other
+platforms; the integration script has to be written by hand, in the shape
+Wazuh's own `<integration>` block expects. The TheHive API key is passed
+into the script via Wazuh's own `<api_key>` integration-config mechanism
+(argv[2]) — never hardcoded into the script itself.
+
+**Filtering by rule group, not alert level.** A pure alert-level threshold
+looked like the obvious, cleaner filter to use — "forward everything above
+severity N" — but it genuinely doesn't work in this lab: this lab's own
+Cloudflare rule (id 100011) and Wazuh's built-in Suricata rule (id 86601)
+are both **level 3**, the exact same level as routine platform noise like
+"Wazuh server started" (rule 502) and rootcheck housekeeping messages. A
+level-3 threshold either forwards every real alert *and* all that routine
+noise, or misses real alerts to keep the noise out — there's no level
+cutoff that separates them, because they share a level. The integration
+instead filters by rule **group** — `attack`, `authentication_failed`,
+`ids` — which is precise where level filtering wasn't, since Wazuh's rule
+groups classify *what kind of thing happened*, not just how urgent it was
+rated.
+
+**The TheHive permissions lesson.** TheHive's own default
+`admin@thehive.local` / `secret` account turned out to only carry
+platform-management rights, not the `manageCase`/`create` permission case
+creation actually needs. Getting case creation working for real required
+creating a real organisation (`soc-lab`) inside TheHive and a dedicated
+user with an `analyst` profile via TheHive's own API — the default account
+alone was never going to be able to create cases, no matter how correctly
+the Wazuh side of the integration was configured. See Part 10 for this as
+its own troubleshooting entry.
+
+**Verified result and one real false positive.** The integration was
+verified across all three live sources feeding Wazuh at the time —
+Cloudflare, MySQL, Suricata — each producing a real TheHive case with a
+real case number. Just as importantly, routine platform noise correctly
+did **not** create cases, which is the actual proof the group filter
+works as intended, not just that it doesn't crash. One genuine, harmless
+false positive surfaced along the way: Wazuh's `rootcheck` flagged the
+Cloudflare and MySQL log directories as having hidden files ("link count
+does not match number of files") — a legitimate rootkit-hiding detection
+technique, correctly firing here for a totally benign reason. Docker
+Desktop's macOS bind-mount layer (virtiofs) creates a fresh inode when a
+host-side tool atomically replaces a file, and the container's cached view
+of the old inode briefly shows a link-count mismatch — real detection
+logic, doing exactly what it's supposed to do, tripped by a filesystem
+quirk rather than an actual rootkit.
+
 **Paid vs free tier reality**<!--h3-->
 
 Self-hosted TheHive 5 and Cortex are both free and fully functional with
@@ -308,19 +373,19 @@ every time. Its value is entirely dependent on having something feeding it
 alerts in the first place; a SOAR platform with nothing wired into it is
 just an empty case-tracking UI.
 
-Do NOT stand this up expecting it to add value on day one of a small lab —
-and this is the honest, stated state of this lab right now: TheHive/Cortex
-are built and their containers exist, but they are currently **stopped/
-idle**, and — more importantly — **not actively wired to Wazuh's alerts**.
-That's a known, documented gap, not a hidden one. The realistic sequence
-for a lab this size is: get a SIEM producing real alerts first (done, via
-Wazuh), then build the alert-forwarding integration (Wazuh has a native
-TheHive connector/webhook path for this), and only then does running
-TheHive continuously start paying for its own resource cost. Running it
-idle "because it's part of the architecture" without a live feed is a fair
-thing to note in a portfolio as planned/next-step work, but running it
-disconnected from real alerts on a resource-constrained 16GB host with no
-current benefit is not worth the standing memory cost.
+Do NOT assume this stack runs continuously just because it now actually
+works — the honest, stated state of this lab right now is that TheHive and
+Cortex are built, wired, and proven to turn real Wazuh alerts into real
+cases (see above), but the stack still sits **stopped by default**. That's
+a genuine, deliberate Docker resource-management decision, not a leftover
+gap: Cassandra and Elasticsearch are both JVM-heavy, and running them
+continuously alongside Wazuh's own three containers on a 16GB Mac is real,
+standing memory pressure with no benefit on the days nothing is actively
+being tested or demonstrated. The realistic operating pattern for a lab
+this size, now that the integration is real: bring TheHive/Cortex up when
+actually exercising the alert-to-case pipeline, and let it stop the rest
+of the time — a resource-usage decision, not an unfinished-integration
+one.
 
 **Internal architecture**<!--h3-->
 
@@ -393,12 +458,18 @@ throwaway lab password if this stack is ever exposed beyond localhost.
 **How TheHive + Cortex fits into the overall lab architecture**<!--h3-->
 
 Intended role: the case-management/response layer downstream of Wazuh —
-Wazuh alerts would forward into TheHive as cases, Cortex would enrich
+Wazuh alerts forward into TheHive as cases, and Cortex would enrich
 observables extracted from those alerts. Actual current state: built,
-capable, currently idle, and explicitly not yet wired to Wazuh's alert
-output. This is the most honestly-stated gap in the lab's architecture and
-worth presenting as exactly that in this document — a real next step, not
-a finished integration.
+capable, and now genuinely wired — the `custom-thehive` integration turns
+real Wazuh alerts into real TheHive cases, filtered by rule group and
+verified across three live sources. What's still honestly not done: Cortex
+enrichment itself hasn't been exercised as part of that pipeline (cases
+get created; analyzers haven't been run against their observables), and
+the stack runs on-demand rather than continuously, for the resource
+reasons above. That's a narrower, more accurate gap than "not wired at
+all," and worth stating precisely rather than either overstating this as
+a finished SOAR pipeline or leaving the old, now-incorrect "idle,
+disconnected" framing in place.
 
 **3.3 LocalStack**<!--h2-->
 

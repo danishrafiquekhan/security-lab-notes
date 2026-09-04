@@ -1,19 +1,24 @@
-**Part 3.4-3.6: Suricata, MySQL, Cloudflare Pages + Workers/Functions**<!--h1-->
+**Part 3.4-3.7: Suricata, MySQL, Cloudflare Pages + Workers/Functions, Auth0**<!--h1-->
 
-This part covers three very different kinds of monitored target in the lab:
-a network intrusion detection engine that is built but not yet wired in
+This part covers four very different kinds of monitored target in the lab:
+a network intrusion detection engine that is now fully fixed and wired in
 (Suricata), a database that was stood up specifically to be attacked and
-watched (MySQL), and a real, live, public web target whose logs have to be
+watched (MySQL), a real, live, public web target whose logs have to be
 smuggled out of a platform that doesn't want to give them to you for free
-(Cloudflare Pages + Functions). Read together, they make a useful point:
-how much detection work a target needs depends entirely on how close its
-native log format already is to what your SIEM expects. MySQL needed zero
-custom Wazuh rules or decoders. Cloudflare needed a custom rule but no
-custom decoder. Suricata, if and when it gets wired in, will need custom
-rules too — like Cloudflare, not like MySQL — because Wazuh ships no
-built-in Suricata ruleset, even though its EVE JSON is already
-well-structured enough that it won't need a custom decoder either. That
-contrast is the throughline of this part.
+(Cloudflare Pages + Functions), and a real identity provider whose System
+Log is a fourth live, verified detection source (Auth0). Read together,
+they make a useful point: how much detection work a target needs depends
+entirely on how close its native log format already is to what your SIEM
+expects. MySQL needed zero custom Wazuh rules or decoders. Suricata,
+once two silent config bugs were fixed, also needed no custom rule or
+decoder — its ET ruleset alert fired straight through Wazuh's own
+built-in Suricata decoder/rule, the same "no custom content needed"
+outcome as MySQL, for a different underlying reason (Wazuh ships a
+built-in Suricata decoder path the same way it does for MySQL's log
+format). Cloudflare needed a custom rule but no custom decoder. Auth0
+needed a custom rule set, because Wazuh ships no built-in Auth0 decoder —
+like Cloudflare, not like MySQL or Suricata. That contrast is the
+throughline of this part.
 
 **Part 3.4: Suricata — Network Intrusion Detection**<!--h2-->
 
@@ -54,8 +59,10 @@ alert tcp any any -> $HOME_NET 3306 (msg:"Possible MySQL brute force";
 ```
 
 (This is an illustrative example of the rule *shape*, not a rule that has
-been written, loaded, or tested against Suricata in this lab — Suricata is
-currently stopped/idle, as noted below.) The strength of signature-based
+been written, loaded, or tested against Suricata in this lab.) The rule
+that actually fired in this lab, by contrast, is a real one — sid
+**2036252**, "ET SCAN RDP Connection Attempt from Nmap", from the free ET
+Open ruleset, and it's covered in full below. The strength of signature-based
 detection is precision: when a signature fires, you know exactly what
 matched and why, which makes triage fast and false-positive tuning
 tractable. The weakness is coverage: a signature-based engine can only
@@ -80,34 +87,72 @@ anomaly/behavioral layers (increasingly, this is what "XDR" vendors sell as
 their differentiator on top of a base like this) catch what signatures
 miss, at the cost of more tuning and more analyst judgment on each alert.
 
-**Why Suricata is "the obvious next thing to feed into Wazuh" — and why it isn't wired in yet**<!--h3-->
+**Suricata is now fully fixed and wired to Wazuh — two silent bugs and a Docker-networking workaround**<!--h3-->
 
-Suricata's container (`jasonish/suricata:latest`) was built previously in
-this lab and is currently **stopped/idle** — it has not been running
-during this document's session, and it is not currently feeding Wazuh
-anything. This is a deliberate, honestly-documented gap, not an oversight
-being glossed over.
+Suricata's container (`jasonish/suricata:latest`), built previously in this
+lab, is now **fixed and actually wired to Wazuh**, verified with real
+traffic — a real change from the earlier state of this document, where
+Suricata was a stopped container producing nothing. Getting there required
+finding and fixing two real, silent bugs plus one genuine architectural
+workaround, and all three are worth walking through because each is a
+realistic, non-obvious failure mode.
 
-The reasoning for calling it "the obvious next thing" is architectural, not
-aspirational hand-waving: every other source Wazuh currently ingests in
-this lab (MySQL logs, Cloudflare Function logs) is an *application* log —
-something a specific piece of software chose to write down. Suricata would
-give Wazuh its first *network-layer* visibility: traffic Wazuh currently
-cannot see at all, regardless of what any application on top of that
-traffic decides to log. Concretely, Suricata emits an EVE JSON log
-(`eve.json`) with event types like `alert`, `dns`, `http`, `tls`, `flow` —
-Wazuh's `<log_format>json</log_format>` localfile mechanism (the same
-mechanism already proven out for the Cloudflare relay, see Part 3.6 below)
-is the natural ingestion path, since EVE JSON is already structured JSON
-Wazuh can auto-decode into `data.<field>` keys without a custom decoder.
-What *would* be needed is custom Wazuh rules that match on Suricata's
-specific field names (`alert.signature`, `alert.category`, `src_ip`,
-`dest_port`, etc.) — Wazuh ships no built-in Suricata ruleset the way it
-does for MySQL, so this would look architecturally like the Cloudflare
-integration (custom rule, no custom decoder) rather than the MySQL one
-(fully built-in). That parallel is exactly why it's called out as "next":
-the pattern is already proven twice in this lab, just not yet applied to
-network traffic.
+**Bug 1: `eve-log` nested under the wrong config key.** Suricata's
+`suricata.yaml` expects the `eve-log` output block to live under the
+top-level `outputs:` key. In this lab's config it had been nested under
+`logging:` instead — a plausible-looking but wrong location, since
+`logging:` is a real top-level key in `suricata.yaml` that governs
+Suricata's *own* application log verbosity, not the `eve.json` event
+output. Suricata started fine with `eve-log` in the wrong place — there was
+no startup error — it simply never wrote `eve.json` at all, because the
+config block that should have enabled it was never read as an `outputs:`
+entry.
+
+**Bug 2: `HOME_NET`/`EXTERNAL_NET` never defined.** Suricata's rules
+almost universally reference the `$HOME_NET` and `$EXTERNAL_NET` variables
+(visible in the illustrative rule shape above) rather than hardcoded IP
+ranges, specifically so the same rule works across different network
+layouts. Neither variable was ever defined in this lab's `suricata.yaml`.
+An undefined variable referenced by a rule doesn't produce a loud error
+either — it silently disables every single rule that references it, which
+in practice is nearly the entire default ruleset, since almost every rule
+is written in terms of traffic between `$HOME_NET` and `$EXTERNAL_NET`.
+Two silent misconfigurations, neither of which produced an obvious error
+message, together meant Suricata could have been "running" indefinitely
+while doing effectively nothing.
+
+**Bug 3: 16 Modbus/DNP3 rules that fail to parse.** Separately, 16 rules
+referencing the Modbus and DNP3 application-layer protocols failed to
+parse, because those app-layer parsers are disabled in this lab's
+configuration — there is no ICS/SCADA equipment in this lab for them to
+ever have anything to inspect. Rather than leave those 16 rules generating
+load errors on every start, they were excluded via a `disable.conf` file,
+which is Suricata's supported mechanism for deliberately excluding
+specific rule IDs from being loaded at all.
+
+**The Docker-networking workaround: a dedicated bridge network, not host
+networking.** Docker Desktop on macOS does not give containers real access
+to the host's actual network interfaces, even when a container is
+configured with host networking — Docker Desktop on macOS runs containers
+inside a Linux VM, so "host networking" only reaches that VM's virtual
+network, not the Mac's real Wi-Fi/Ethernet interface the way it would on
+native Linux Docker. That ruled out the obvious approach of pointing
+Suricata at a real host interface in promiscuous mode. The actual fix:
+Suricata was attached to its own **dedicated Docker bridge network**, and
+real inter-container traffic was generated for it to observe on that
+bridge — specifically, a real Python socket connection sending Nmap's
+literal RDP-scan cookie bytes to a plain `netcat` listener, with both ends
+of that connection also on the same bridge network Suricata was watching.
+
+**The verified result.** That traffic produced a real ET ruleset alert —
+**"ET SCAN RDP Connection Attempt from Nmap", sid 2036252** — which fired
+through **Wazuh's own built-in Suricata decoder/rule (id 86601)**. No
+custom Wazuh rule or decoder was needed for this to work, which puts
+Suricata in the same category as MySQL rather than Cloudflare: Wazuh
+already ships a Suricata decoder/rule path, the integration work here was
+entirely about getting real EVE JSON actually flowing (fixing the two
+silent config bugs) and getting real traffic in front of Suricata at all
+(the bridge-network workaround) — not about writing new detection content.
 
 **When to use this / when NOT to use this**<!--h3-->
 
@@ -119,9 +164,14 @@ to replace endpoint or application logging — it has zero visibility into
 what happens *inside* an encrypted TLS session past the handshake/SNI
 (without TLS interception, which this lab does not do and which carries
 its own significant tradeoffs), and it says nothing about what a user did
-once authenticated. In this lab specifically: do not describe Suricata as
-"deployed" or "detecting" anything right now — it is a stopped container
-with real prior build work behind it, not a live control.
+once authenticated. In this lab specifically: Suricata is now a real,
+verified, wired-in source — but it's worth being precise about the shape
+of that verification: the traffic it detected was deliberately generated
+on a dedicated Docker bridge network built for this purpose, not traffic
+crossing the Mac's real network interface, because Docker Desktop on macOS
+genuinely cannot give a container that visibility. Anyone reading this as
+"Suricata is monitoring this laptop's real network traffic" would be
+overstating what was actually built.
 
 **Part 3.5: MySQL as a Monitored, Attacked Lab Target**<!--h2-->
 
@@ -147,9 +197,13 @@ and conflating them is a common mistake:
   proportional to how much is going *wrong*, not to overall traffic.
 - **general_log** (the general query log) — logs *every single statement*
   the server executes: every `SELECT`, every `INSERT`, every connection
-  and disconnection, from every client, successful or not. This is
-  enabled in this lab (both general query logging and error logging are
-  on for `soc-lab-mysql`) specifically for lab visibility.
+  and disconnection, from every client, successful or not. This started
+  out enabled unconditionally in this lab and hit **13MB from just a few
+  minutes of testing** — a real, concrete illustration of exactly the
+  unbounded-growth cost described below, not a hypothetical one. It now
+  starts **off by default**, with a small `on`/`off`/`rotate` toggle
+  script, and is only switched on for the duration of an actual test
+  scenario rather than left running continuously.
 
 The reason this distinction matters far beyond this lab is a real,
 recurring production tradeoff: **general_log gives you complete audit
@@ -169,12 +223,14 @@ much looser than the database's own access controls). This is precisely
 why general_log is *off by default* in MySQL and why production DBAs
 enable it only surgically — for a bounded diagnostic window, or filtered
 to specific users/statement types — rather than leaving it on
-indefinitely. In this lab it's left on because the lab's entire purpose is
-generating visible activity to detect, and disk/performance cost is a
-non-issue at this scale; a security engineer reading this should not
-walk away thinking "just turn general_log on in production," they should
-walk away understanding *why that's a real decision with a real cost*,
-made deliberately here because the tradeoff doesn't bite at lab scale.
+indefinitely. This lab now follows that same discipline instead of being
+an exception to it: after general_log hit 13MB from just a few minutes of
+unconditional testing, it was switched to starting off by default, with
+a small toggle script (`on`/`off`/`rotate`) to enable it only for the
+duration of a specific test scenario. A security engineer reading this
+should not walk away thinking "just turn general_log on in production" —
+and this lab's own 13MB-in-minutes experience is the concrete illustration
+of why not, not just the abstract argument for it.
 
 **Wazuh's built-in MySQL decoder and rules**<!--h3-->
 
@@ -406,3 +462,122 @@ JSON-emitting source, check first whether it's already well-formed JSON
 time the source is your own bespoke application rather than well-known
 third-party software, since no SIEM vendor ships content for logic nobody
 but you wrote.
+
+**Part 3.7: Auth0 — Identity Provider System Log**<!--h2-->
+
+**What it is and the principle behind it**<!--h3-->
+
+**Auth0** **[FREEMIUM]** (Okta-owned; a real free trial tier, time-boxed
+on a countdown rather than an indefinite free allowance — treat any
+specific day count as accurate only as of when it was checked, not a
+permanent fact) is a real Identity-as-a-Service provider — the same
+category of product as Entra ID or Okta, but with its own distinct login
+flows, Management API, and event log format. Auth0 is now a **fourth
+live, verified detection source** in this lab, alongside Cloudflare,
+MySQL, and Suricata — a genuine change from the earlier state of this
+document, where Auth0 was a dashboard with no working application
+credentials behind it. A real Machine-to-Machine (M2M) application was
+created and authorized against Auth0's own Management API, giving this
+lab a real Domain, Client ID, and Client Secret for the first time.
+
+The principle behind treating Auth0 as a detection source at all: an
+identity provider's own **System Log** — its event stream of logins,
+failures, blocked accounts, and administrative API activity — is exactly
+the kind of place identity-based attacks (credential stuffing, blocked
+account lockouts, failed Management API calls, failed machine-to-machine
+credential exchanges) actually show up first, independent of whatever
+downstream application the identity is used to reach.
+
+**The least-privilege lesson, in full**<!--h3-->
+
+Creating the M2M application surfaced a real, concrete least-privilege
+lesson, not a theoretical one. When the new M2M application was authorized
+against the Management API, the client-grant that came back carried
+**nearly the entire Management API scope** — user management, client
+management, encryption keys, effectively everything the Management API
+can do — instead of just the two scopes actually needed for log polling,
+`read:logs` and `read:logs_users`. The cause: Auth0's own "Authorize" step
+in the dashboard flow defaults to showing **every available scope checked**
+unless someone actively goes through and narrows it — the over-broad grant
+wasn't a bug or an attack, it was the tool's own default behavior handing
+out more than was asked for, which is precisely the over-permissioning
+failure mode that shows up constantly in real cloud/SaaS IAM work.
+
+The fix was done through the Management API itself, not the dashboard:
+`GET /api/v2/client-grants?client_id=...` to find the specific grant
+record, then a `PATCH` to that grant's `scope` field to narrow it down to
+just the two read-only log scopes. The fix was then **verified**, not
+just assumed — a deliberate write-style Management API call was made
+against the newly-narrowed credentials, and it correctly came back
+`403 insufficient_scope`, proving the scope reduction actually took effect
+rather than just looking correct in the dashboard.
+
+**Checkpoint-polling vs file-tailing — a genuinely different ingestion
+shape**<!--h3-->
+
+`poll_auth0_logs.py` is the script that gets Auth0's System Log into
+Wazuh, and its mechanism is genuinely different from every other source in
+this part: Cloudflare, MySQL, and Suricata are all, at bottom, **tailing a
+growing file or stream** (a log file, a `wrangler tail` process, an
+`eve.json` file). Auth0's System Log has no file to tail — it's a paginated
+REST API, and the correct integration pattern is **checkpoint-polling**:
+the script requests log entries `?from=<last_seen_log_id>`, using Auth0's
+own `log_id` field (a value unique to each log entry, assigned by Auth0
+itself) as the pagination cursor, records the newest `log_id` it saw at
+the end of each poll, and starts the next poll from exactly that point.
+This is a meaningfully different integration shape from the file-tailing
+pattern used everywhere else in this lab, worth recognizing as its own
+category: any source exposing a paginated, checkpoint-able API (log-ID-based
+or timestamp-based) can be integrated the same way, independent of whether
+it also happens to write local files.
+
+**Wazuh has no built-in Auth0 decoder — a custom rule set, keyed on a
+field unique to Auth0's schema**<!--h3-->
+
+Wazuh ships no built-in Auth0 content, so a custom rule set was written —
+matching on `log_id`, a field that exists only in Auth0's own log schema,
+specifically chosen as the anchor to avoid any risk of accidentally
+clashing with the Cloudflare rules, which match on a `path` field that a
+different JSON source could plausibly also happen to have. The rule set
+covers failed logins, blocked accounts, failed Management API calls, and
+failed M2M client-credentials exchanges — Auth0's own event-type codes
+`feccft` (Failed Exchange for Client Credentials, Failed Token) and
+`seccft` (the corresponding success type) are what those M2M exchange
+failures/successes actually look like in the raw log.
+
+**Verified result**<!--h3-->
+
+A deliberately wrong client secret was used to attempt an M2M
+client-credentials exchange, producing a real `feccft` event in Auth0's
+System Log. That event was polled into Wazuh and correctly fired the new
+custom rule, grouped under `authentication_failed` — the same rule group
+used for filtering alerts into TheHive (see Part 3.2's update), which
+means this Auth0 failure event doesn't just sit in Wazuh as a raw alert,
+it's also eligible to become a real TheHive case through the same
+group-based filtering pipeline the other three sources use.
+
+**Paid vs free tier reality**<!--h3-->
+
+Auth0 **[FREEMIUM]** — the tier actually in use here is a **free trial**,
+meaning it is genuinely free right now but on a countdown, not an
+indefinite free allowance the way Wazuh or Suricata are. That's a
+meaningfully different kind of "free" from most of the rest of this lab's
+stack, and worth tracking explicitly rather than assuming Auth0 stays
+usable indefinitely without any further action once the trial period
+ends.
+
+**When to use this / when NOT to use this**<!--h3-->
+
+Use an IdP's own System Log as a detection source whenever the IdP exposes
+one via a real API — it's frequently the earliest, cleanest signal for
+credential-based attacks against that identity provider specifically,
+ahead of whatever downstream application logging might eventually show the
+same activity. Use checkpoint-polling (log-ID or timestamp based), not
+file-tailing, for any source that's fundamentally a paginated API rather
+than a growing local file. Do NOT accept a client-grant's default scope at
+face value — verify the actual granted scope via the Management API
+(`GET /api/v2/client-grants`) after authorizing any new application, and
+confirm a narrowed scope actually took effect with a real call that should
+fail, not just a call that should succeed. And do not treat a free trial
+tier as equivalent to an indefinite free tier when planning how long an
+integration built against it will keep working unattended.

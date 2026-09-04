@@ -18,12 +18,14 @@ Solid arrows are real, verified, currently-working data flows. Dashed arrows are
 
 - Cloudflare Pages site → Python relay → Wazuh (custom rule, fires on `/login.html` hits)
 - MySQL container → Python relay → Wazuh (built-in `mysql_log` rule, fires on failed auth)
+- Suricata → Wazuh, over a dedicated Docker bridge network → Wazuh's built-in Suricata decoder/rule (real ET ruleset alert, "ET SCAN RDP Connection Attempt from Nmap" sid 2036252, fired via rule id 86601 — no custom rule needed, same situation as MySQL)
+- Auth0 System Log → checkpoint-polling script → Wazuh custom rules (a fourth live source, with a real least-privilege lesson along the way — see the first architectural decision below)
+- Wazuh → custom `custom-thehive` integration → TheHive cases (verified across three live sources: Cloudflare, MySQL, Suricata, with real case numbers; routine platform noise correctly did not create cases)
 
-**Built and running, but not wired to anything else:**
+**Built and working, but not always running:**
 
-- TheHive + Cortex — a real case management/SOAR stack, sitting idle, not receiving alerts from Wazuh
-- LocalStack — used standalone for AWS IAM testing content, not feeding any SIEM
-- Suricata — network IDS running, not forwarding anything to Wazuh yet
+- TheHive + Cortex — a real case management/SOAR stack that now actually receives cases from Wazuh alerts (see above), but sits **stopped by default** — a real Docker resource constraint on a 16GB Mac, only brought up when actually needed, not a "built but disconnected" gap anymore.
+- LocalStack — used standalone for AWS IAM testing content, not feeding any SIEM.
 
 **Built, but the next connection is the actual point of building it and hasn't happened yet:**
 
@@ -31,15 +33,14 @@ Solid arrows are real, verified, currently-working data flows. Dashed arrows are
 
 **Documented as a plan, never actually built:**
 
-- Auth0 as a second identity provider — a dashboard was set up, no working application credentials were ever configured.
 - Any `terraform apply` against the real Azure subscription — every exercise in terraform-labs is syntax-valid and `terraform validate`-clean, and none has ever created a single real Azure resource.
 
 **Why the lab is structured this way**<!--h2-->
 
 Three deliberate architectural decisions run through everything else in this document, and understanding them up front makes every later section make more sense:
 
-**1. Wazuh, not Sentinel, is the live SIEM — and the Sigma/KQL detection content stays written for Sentinel anyway.** Sentinel costs real money to run meaningfully; Wazuh is free and self-hosted. But Wazuh's architecture (agents + manager, built for host and network telemetry) is a genuinely poor fit for cloud identity provider log schemas like Entra ID sign-in logs — forcing that content onto Wazuh just to claim "it runs somewhere" would be a fake fit, not a real one. So the detection content that's meant to demonstrate Sentinel/KQL skill stays written for Sentinel's schema, syntax-validated but never fired against real Sentinel data (no free real Sentinel tenant exists yet — the Microsoft 365 Developer Program's E5 trial is the actual next step, not something blocked by cost). Meanwhile Wazuh gets its own, separate detection content — the Cloudflare and MySQL rules — written specifically for what Wazuh actually is. Part 5 covers this "platform translation problem" in full depth, because it's one of the most transferable lessons in the whole lab.
+**1. Wazuh, not Sentinel, is the live SIEM — and the Sigma/KQL detection content stays written for Sentinel anyway.** Sentinel costs real money to run meaningfully; Wazuh is free and self-hosted. But Wazuh's architecture (agents + manager, built for host and network telemetry) is a genuinely poor fit for cloud identity provider log schemas like Entra ID sign-in logs — forcing that content onto Wazuh just to claim "it runs somewhere" would be a fake fit, not a real one. So the detection content that's meant to demonstrate Sentinel/KQL skill stays written for Sentinel's schema, syntax-validated but never fired against real Sentinel data (no free real Sentinel tenant exists yet — the Microsoft 365 Developer Program's E5 trial is the actual next step, not something blocked by cost). Meanwhile Wazuh gets its own, separate detection content — the Cloudflare, MySQL, Suricata, and now Auth0 rules — written specifically for what Wazuh actually is. Auth0 working via Wazuh custom rules doesn't contradict this reasoning, it confirms it: Auth0's System Log exposes a plain pollable REST API, the same shape as Cloudflare's request logs, so wiring it into Wazuh with a checkpoint-polling script and custom rules is a normal custom-rule integration, not a fake fit. Entra ID is different — its real ingestion path is Sentinel's own analytics rules against `SigninLogs`/`AuditLogs`, a fundamentally different mechanism with no plain pollable log endpoint underneath it — so faking that native pipeline on top of Wazuh would still be exactly the fake fit this decision argues against, which is why Entra ID content stays written for Sentinel. Part 5 covers this "platform translation problem" in full depth, because it's one of the most transferable lessons in the whole lab.
 
 **2. Everything that touches real traffic is disclosed as synthetic, and audited for real-data leaks before going public.** The Cloudflare site has an on-page banner disclosing it's a lab fixture. Every IP in every committed sample uses documentation-reserved ranges. A full confidentiality audit (current files and entire git history, across every repo) was run before treating any of this as safe to be public, and it found and fixed one real leak — a specific former employer's tool name, genericized before that repo could go public. This isn't paranoia; it's a real discipline anyone building a public portfolio from real work experience needs, and it's worth doing deliberately rather than trusting that nothing slipped through.
 
-**3. Gaps stay visible instead of getting quietly built around.** TheHive/Cortex not being wired to Wazuh, no terraform ever being applied, Auth0 never getting finished — none of these get hidden by only documenting the parts that work. A lab that shows you the finished, polished 20% teaches you a fraction of what one that shows the real, still-in-progress 100% does.
+**3. Gaps stay visible instead of getting quietly built around.** TheHive/Cortex sitting stopped by default, no terraform ever being applied, no Sysmon/agent on the Windows Server VM yet — none of these get hidden by only documenting the parts that work. A lab that shows you the finished, polished 20% teaches you a fraction of what one that shows the real, still-in-progress 100% does.

@@ -294,6 +294,16 @@ Wazuh's *built-in* `mysql_log` decoder/rule pipeline (no custom rule needed
   an immediate check of attempt volume and source — a handful of failures
   from one internal IP is very different from hundreds from an external one.
 
+**Walkthrough 5: The two identity incident-response case studies (`detection-engineering/identity-incident-response/`)**<!--h3-->
+
+Unlike Walkthrough 3 above, these two are not hypothetical, and they're a stronger example of a full case-study lifecycle than anything else in this document: `detection-engineering/identity-incident-response/` contains **full, complete lifecycle case studies** — detection through lessons learned, each with a Sigma rule, an incident report, a playbook, and a hunting query — grounded in a fictional Contoso scenario (`j.reyes@contoso.com`).
+
+**MFA fatigue / push-bombing.** The detection is a brand new Sigma rule, `mfa-fatigue-detection.yml` (tagged `T1621` and `T1110`), with the same known Sigma limitation as this lab's `password-spray.yml` rule: Sigma can't natively express the aggregation logic the detection needs, so it's hand-written into the generated KQL with a comment explaining why. The incident report, playbook, and hunting query built around it walk a full push-bombing scenario end to end — an attacker with valid credentials spamming MFA push approvals, exactly the attack pattern named in Part 4.4's MFA discussion.
+
+**Impossible travel.** This case study builds the missing lifecycle artifacts — incident report, playbook, hunting query — on top of the Sigma rule that already existed in this repo (`sigma-rules/impossible-travel.yml`), rather than duplicating it. The hunting query is a genuinely complementary detection angle, not a restatement: it does independent geo-velocity math (distance between sign-in locations over time, checked against a plausible travel speed) instead of relying on Entra ID's own `RiskEventTypes` field, which is a real, worked example of the "don't rely on a single signal" triage discipline this document teaches elsewhere.
+
+Both playbooks are explicit, the same honest framing used throughout this document and `sentinel-soar-playbooks`, that they are designs — not deployed, executing automations. What makes these two walkthroughs worth citing here specifically is that they are the strongest available example in this portfolio of a *complete* case-study lifecycle (not just a rule, and not just a hypothetical triage narrative like Walkthrough 3) — genuinely stronger evidence of end-to-end incident-response thinking than a rule on its own would be.
+
 **6.3 A generic triage runbook template**<!--h2-->
 
 The structure below is deliberately modeled on the shape of the GUID triage

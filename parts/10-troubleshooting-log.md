@@ -270,7 +270,139 @@ the majority of the real work involved, and it is worth budgeting time
 for that step explicitly rather than assuming a built-in decoder/rule
 pair means the log source will "just work" once the file is being read.
 
-**10.6 The repo-wide markdown-header convention drift**<!--h2-->
+**10.7 The recurring Docker Desktop virtiofs bind-mount staleness bug**<!--h2-->
+
+**Symptom**: Docker Desktop's macOS bind-mount layer (virtiofs) repeatedly
+went stale after a config or log file was edited from the host side — a
+container kept operating on an old, cached view of a file that had
+genuinely already changed on disk. This surfaced at least three separate
+times, in three genuinely different specific forms: once on a config file
+edit, once on a rules file edit, and once on a brand-new volume mount that
+had never actually been attached to a running container at all.
+
+**Investigation**: `docker restart` alone was often not enough to fix
+this, which is the non-obvious part — the intuitive fix for "a container
+seems to be looking at stale data" is to restart it, and that intuition is
+wrong here often enough to be worth documenting explicitly. Sometimes only
+a full `docker compose up -d` — which triggers container **recreation**,
+not just a restart of the existing container — actually picked up the
+current, correct file state. The third occurrence was the most instructive
+variant: a brand-new volume mount added to `docker-compose.yml` was never
+picked up by `docker restart` at all, for a reason that isn't really about
+virtiofs staleness in the narrow sense — `docker restart` restarts the
+existing container with its existing set of mounts; it has no mechanism to
+attach a mount that wasn't part of the container when it was created. Only
+`docker compose up -d`, by recreating the container from the current
+compose file, actually attaches a newly-added volume.
+
+**Root cause**: two related but distinct failure modes sharing one
+underlying cause. First, virtiofs's own caching genuinely can serve a
+container a stale view of a bind-mounted file's contents after a host-side
+edit, and a plain restart doesn't always force a fresh read. Second, and
+more fundamentally, a `docker restart` never re-evaluates a container's
+mount configuration at all — it restarts the same container with the same
+mounts it already had, so a mount added to `docker-compose.yml` *after*
+that container was created is invisible to it until the container is
+actually recreated. Config staleness and an entirely un-attached new mount
+look like the same symptom ("the container isn't seeing what I just
+changed") but are different failure modes with the same practical fix.
+
+**Fix**: when a file edited from the host side doesn't appear to be
+picked up by a running container, don't stop at `docker restart` — escalate
+to `docker compose up -d`, which forces container recreation and both
+re-reads current bind-mounted file state and re-applies the current set of
+volume mounts from `docker-compose.yml`. This was the actual fix in all
+three occurrences of this bug across this lab session.
+
+**Lesson**: on Docker Desktop for macOS specifically, `docker restart`
+and `docker compose up -d` are not interchangeable ways to "make a
+container see a change" — `restart` reuses the existing container
+unchanged, `up -d` recreates it against the current compose file and
+current host-side file state. Any time a change made outside a running
+container (a config edit, a rules file edit, a new volume added to
+`docker-compose.yml`) doesn't seem to take effect, recreation via
+`docker compose up -d` should be the next thing tried, not repeated
+plain restarts.
+
+**10.8 TheHive's default account lacked case-creation permissions**<!--h2-->
+
+**Symptom**: with the `custom-thehive` Wazuh integration built and
+configured, alerts forwarded from Wazuh to TheHive's API were not
+producing cases, even though the API calls themselves were reaching
+TheHive without a connection or authentication-format error.
+
+**Investigation**: the integration was authenticating against TheHive's
+own default account, `admin@thehive.local` / `secret`, created
+automatically the way TheHive seeds a first-run superadmin. That account
+turned out to hold platform-management rights — the kind of access needed
+to administer TheHive itself, manage organisations, and manage users — but
+not the specific `manageCase`/`create` permission that actually creating a
+case requires. Platform administration and case-management are governed
+by different permission scopes inside TheHive, and the default account
+was never provisioned with the latter.
+
+**Root cause**: assuming a superadmin-labeled default account has every
+permission a normal working integration would need, when TheHive's
+permission model actually separates "can administer the platform" from
+"can create and work cases" as distinct scopes.
+
+**Fix**: a real organisation (`soc-lab`) was created inside TheHive, and a
+dedicated user with an `analyst` profile was created inside that
+organisation via TheHive's own API — the profile that actually carries
+`manageCase`/`create` rights. The integration was reconfigured to
+authenticate as that user instead of the default admin account, and case
+creation started working immediately once that permission gap was closed.
+
+**Lesson**: a platform's default/superadmin account is not a safe stand-in
+for "has every permission this integration needs" — administrative
+permissions and functional/workflow permissions (here, case creation) are
+often genuinely separate scopes, and the correct fix is provisioning a
+purpose-specific account with the exact permission the integration
+actually needs, not assuming the most privileged-looking account already
+has it.
+
+**10.9 Auth0's Management API grant defaulted to far broader scope than requested**<!--h2-->
+
+**Symptom**: after creating a Machine-to-Machine application in Auth0 and
+authorizing it against the Management API for log-polling purposes only
+(`read:logs`, `read:logs_users`), the resulting client-grant carried
+**nearly the entire Management API scope** — user management, client
+management, encryption keys, and more — rather than just those two
+read-only scopes.
+
+**Investigation**: Auth0's dashboard "Authorize" step, when authorizing an
+application against an API, defaults to showing **every available scope
+checked** unless a person actively goes through and unchecks the ones not
+needed. Nothing was misconfigured or attacked here — the platform's own
+default behavior handed out far more access than was requested, because
+the selection UI's default state is "everything," not "nothing" or "the
+minimum implied by what you're trying to do."
+
+**Root cause**: an over-broad default in a third-party platform's own
+authorization UI, not a mistake specific to this lab's configuration
+steps — the kind of over-permissioning failure mode that recurs constantly
+in real cloud/SaaS IAM work whenever a tool's default is "grant broadly,
+let the user narrow it" rather than "grant nothing, let the user opt in."
+
+**Fix**: corrected via the Management API itself rather than the
+dashboard: `GET /api/v2/client-grants?client_id=...` to locate the
+specific grant record, then a `PATCH` to that grant's `scope` field,
+narrowing it down to just `read:logs` and `read:logs_users`. The fix was
+then verified, not just assumed: a deliberate write-style Management API
+call was made against the newly-narrowed credentials, and it correctly
+returned `403 insufficient_scope`, confirming the scope reduction had
+actually taken effect rather than merely appearing correct in the
+dashboard.
+
+**Lesson**: never trust an authorization flow's default scope selection at
+face value, especially in a dashboard UI that defaults to "everything
+checked" — verify the actual granted scope after the fact via the
+platform's own API, and confirm a narrowed scope really took effect with a
+real call that is expected to fail, not just one that's expected to
+succeed. A successful call proves the remaining permissions still work; it
+proves nothing about whether the removed ones were actually removed.
+
+**10.10 The repo-wide markdown-header convention drift**<!--h2-->
 
 **Symptom**: across this portfolio's public repos, there is a
 consistently applied rule of never using literal `#` markdown headers —
