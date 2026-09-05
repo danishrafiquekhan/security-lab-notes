@@ -201,28 +201,43 @@ highest-signal thing to check first, because attackers can spoof a display
 name trivially but cannot spoof legitimate sending infrastructure without
 actually compromising it.
 
-**Walkthrough 3 (T1059.001 real; T1078.004 still hypothetical)**<!--h3-->
+**Walkthrough 3: T1078.004, run for real, adapted via LocalStack**<!--h3-->
 
 The `atomic-red-team-validation` repo contains two case study folders —
 **T1078.004 (Valid Accounts: Cloud Accounts)** and **T1059.001 (Command and
-Scripting Interpreter: PowerShell)**. T1059.001 has now actually been run —
-see Walkthrough 4 below for the real result. T1078.004 remains "planned,
-not yet run," since it involves cloud identity context this lab's Windows VM
-doesn't provide. What follows for T1078.004 specifically is explicitly a
-**hypothetical** walk of what triage *would* look like, not a record of
-anything that has happened.
+Scripting Interpreter: PowerShell)**. Both have now actually been run;
+T1059.001's real result is Walkthrough 4 below. T1078.004's official Atomic
+Red Team tests all require real Azure/GCP cloud resource creation — checked
+with a `-ShowDetails` dry-run before deciding this — so rather than force a
+real-cloud-touching test, the same underlying "valid account establishes
+persistence" concept was adapted using AWS IAM against LocalStack instead.
 
-**T1078.004 (Cloud Accounts) — would-run triage shape:** the Atomic Red Team
-test for this technique typically involves authenticating with a valid
-cloud-account credential from an atypical context (e.g., programmatic
-sign-in via CLI credentials in a way that mimics an attacker reusing stolen
-tokens). If real telemetry existed, the triage an analyst would perform:
-check the sign-in log for the authentication method and client app used
-(does it match how this account normally authenticates — interactive
-browser vs. CLI/token), check the source IP/ASN against the account's normal
-pattern, and check what the session did immediately after authenticating
-(the "how many" and "what" of triage). The hypothetical verdict path mirrors
-the GUID runbook's logic: identity + context + behavioral deviation.
+- **Who:** the `test` credential (LocalStack's documented placeholder, not a
+  real identity) creating a new IAM user, `backup-svc-account` — an
+  intentionally innocuous name mirroring real attacker backdoor-account
+  naming conventions.
+- **What:** three sequential IAM API calls — `CreateUser`, then
+  `AttachUserPolicy` (AdministratorAccess), then `CreateAccessKey` — the
+  actual persistence mechanism, since a fresh access key survives revocation
+  of whatever credential the attacker originally used to get in.
+- **How many:** one deliberate test sequence, all three steps captured as
+  separate alerts.
+- **Is this expected:** yes, deliberate validation traffic — but the point
+  was confirming detection, which it did: three custom Wazuh rules (no
+  built-in AWS/CloudTrail decoder exists) fired cleanly, correctly tagged
+  MITRE T1078.004, with `CreateAccessKey` weighted highest (level 9) since
+  it's the actual persistence step, not just a precursor. One-line verdict:
+  *"Expected — deliberate technique validation; all three persistence steps
+  caught with correct MITRE tagging, no custom-rule gaps found."* A real
+  attacker's identical sequence in a real cloud account would warrant
+  immediate credential revocation and a review of what that new access key
+  was subsequently used for.
+
+Worth being explicit, the same honesty this document applies everywhere
+else: this validates the detection *concept*, not the literal official
+Atomic Red Team test for T1078.004 — see that case study's own README for
+the full accounting of what this does and doesn't prove relative to the
+real (cloud-login-requiring) test.
 
 **Walkthrough 4: T1059.001, run for real, caught by Wazuh's built-in Sysmon ruleset**<!--h3-->
 
@@ -315,13 +330,13 @@ Wazuh's *built-in* `mysql_log` decoder/rule pipeline (no custom rule needed
 
 **Walkthrough 6: The two identity incident-response case studies (`detection-engineering/identity-incident-response/`)**<!--h3-->
 
-Unlike Walkthrough 3 above, these two are not hypothetical, and they're a stronger example of a full case-study lifecycle than anything else in this document: `detection-engineering/identity-incident-response/` contains **full, complete lifecycle case studies** — detection through lessons learned, each with a Sigma rule, an incident report, a playbook, and a hunting query — grounded in a fictional Contoso scenario (`j.reyes@contoso.com`).
+These two are a stronger example of a full case-study lifecycle than anything else in this document, Walkthroughs 3 and 4 included: `detection-engineering/identity-incident-response/` contains **full, complete lifecycle case studies** — detection through lessons learned, each with a Sigma rule, an incident report, a playbook, and a hunting query — grounded in a fictional Contoso scenario (`j.reyes@contoso.com`).
 
 **MFA fatigue / push-bombing.** The detection is a brand new Sigma rule, `mfa-fatigue-detection.yml` (tagged `T1621` and `T1110`), with the same known Sigma limitation as this lab's `password-spray.yml` rule: Sigma can't natively express the aggregation logic the detection needs, so it's hand-written into the generated KQL with a comment explaining why. The incident report, playbook, and hunting query built around it walk a full push-bombing scenario end to end — an attacker with valid credentials spamming MFA push approvals, exactly the attack pattern named in Part 4.4's MFA discussion.
 
 **Impossible travel.** This case study builds the missing lifecycle artifacts — incident report, playbook, hunting query — on top of the Sigma rule that already existed in this repo (`sigma-rules/impossible-travel.yml`), rather than duplicating it. The hunting query is a genuinely complementary detection angle, not a restatement: it does independent geo-velocity math (distance between sign-in locations over time, checked against a plausible travel speed) instead of relying on Entra ID's own `RiskEventTypes` field, which is a real, worked example of the "don't rely on a single signal" triage discipline this document teaches elsewhere.
 
-Both playbooks are explicit, the same honest framing used throughout this document and `sentinel-soar-playbooks`, that they are designs — not deployed, executing automations. What makes these two walkthroughs worth citing here specifically is that they are the strongest available example in this portfolio of a *complete* case-study lifecycle (not just a rule, and not just a hypothetical triage narrative like Walkthrough 3) — genuinely stronger evidence of end-to-end incident-response thinking than a rule on its own would be.
+Both playbooks are explicit, the same honest framing used throughout this document and `sentinel-soar-playbooks`, that they are designs — not deployed, executing automations. What makes these two walkthroughs worth citing here specifically is that they are the strongest available example in this portfolio of a *complete* case-study lifecycle (not just a single real alert, and not just a rule) — genuinely stronger evidence of end-to-end incident-response thinking than a rule on its own would be.
 
 **6.3 A generic triage runbook template**<!--h2-->
 

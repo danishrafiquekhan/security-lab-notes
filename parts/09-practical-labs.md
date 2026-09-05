@@ -498,17 +498,19 @@ merit; no decision has been made.
   reachability), and conflating the two is exactly the kind of overclaiming
   this document is built to avoid.
 
-**Lab 5 (DONE, for T1059.001 — T1078.004 still pending): install Sysmon + a Wazuh agent, run a real Atomic Red Team test**<!--h2-->
+**Lab 5 (DONE — both case studies): install Sysmon + a Wazuh agent, run real Atomic Red Team tests**<!--h2-->
 
 **Status**<!--h3-->
 
 Performed for real. Sysmon and the Wazuh agent are installed on the
 Windows Server 2022 VM from Lab 4, the agent is confirmed **Active** on
-the manager, and one real Atomic Red Team technique (T1059.001,
-encoded PowerShell) has been executed and caught clean by Wazuh's
-**built-in** Sysmon ruleset — no custom rule needed. `T1078.004` in
-`atomic-red-team-validation` is still "planned, not run yet"; this lab
-closed the gap for one of the two case studies, not both.
+the manager, and both of `atomic-red-team-validation`'s Atomic Red Team
+case studies have now been executed: T1059.001 (encoded PowerShell),
+caught clean by Wazuh's **built-in** Sysmon ruleset — no custom rule
+needed — and T1078.004 (Cloud Accounts), adapted via a real IAM
+persistence simulation against LocalStack since the official test
+needs real Azure/GCP cloud login. Neither case study is "planned, not
+run yet" anymore.
 
 **How it actually went, versus the plan**<!--h3-->
 
@@ -576,5 +578,45 @@ completely benign, everyday execution path.
   its own real skill, separate from validating the technique itself —
   see Part 10.14 for the general lesson.
 
-T1078.004 remains explicitly hypothetical, exactly as framed in Part
-6's Walkthrough 3, until it's actually run the same way.
+**T1078.004, adapted: LocalStack instead of real Azure/GCP**<!--h3-->
+
+The official Atomic Red Team tests for T1078.004 all need real cloud
+resource creation — two use GCP (service account, custom IAM role),
+one uses Azure (`New-AzAutomationRunbook`, needing `Connect-AzAccount`
+and a real `terraform apply` against a real subscription). Checked
+with `-ShowDetails` before deciding this rather than assuming it, all
+three confirmed. None has a benign local-only variant the way
+T1059.001's did.
+
+Rather than force a real-cloud-touching test, the same underlying
+technique concept — a valid cloud account minting a new credential to
+persist past revocation of the original one — was adapted using AWS
+IAM against LocalStack:
+```bash
+aws --endpoint-url=http://localhost:4566 iam create-user --user-name backup-svc-account
+aws --endpoint-url=http://localhost:4566 iam attach-user-policy --user-name backup-svc-account --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+aws --endpoint-url=http://localhost:4566 iam create-access-key --user-name backup-svc-account
+```
+LocalStack Community doesn't generate CloudTrail-format logs at all (a
+real, already-documented limitation in `aws-identity-detection`), so
+the detection surface here is LocalStack's own plain-text request log
+(`AWS iam.CreateUser => 200`, etc.), relayed on-demand into Wazuh —
+this lab's fifth live source, distinct from the other four. A new
+custom rule set (Wazuh has no built-in AWS/CloudTrail decoder) matched
+all three steps cleanly, tagged with MITRE T1078.004, with
+`CreateAccessKey` — the actual persistence mechanism — correctly
+weighted higher (level 9) than the precursor `CreateUser`/
+`AttachUserPolicy` steps (level 7 each).
+
+Worth being explicit about what this does and doesn't prove: this
+validates the detection *concept*, not the official Atomic Red Team
+test for T1078.004 specifically — a reader checking against the
+upstream Atomic Red Team library won't find a matching test, because
+the real ones need cloud infrastructure this lab deliberately avoided
+touching. See `atomic-red-team-validation`'s T1078.004 case study for
+the full accounting of that distinction.
+
+Both of `atomic-red-team-validation`'s case studies are now real,
+executed, evidenced work rather than "planned, not run yet" — the
+state described in Part 6's Walkthrough 3 for T1078.004 has been
+updated accordingly.
