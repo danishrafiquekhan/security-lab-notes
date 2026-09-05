@@ -201,17 +201,16 @@ highest-signal thing to check first, because attackers can spoof a display
 name trivially but cannot spoof legitimate sending infrastructure without
 actually compromising it.
 
-**Walkthrough 3 (hypothetical — planned, not run yet): T1078.004 and T1059.001**<!--h3-->
+**Walkthrough 3 (T1059.001 real; T1078.004 still hypothetical)**<!--h3-->
 
 The `atomic-red-team-validation` repo contains two case study folders —
 **T1078.004 (Valid Accounts: Cloud Accounts)** and **T1059.001 (Command and
-Scripting Interpreter: PowerShell)** — that are honestly documented in that
-repo as "planned, not yet run," because no Windows test VM existed at the
-time they were written. That VM now exists (see Part 9, Lab 4), but Sysmon
-and a Wazuh agent have not yet been installed on it, so these two case
-studies remain unrun. What follows is explicitly a **hypothetical** walk of
-what triage *would* look like once real telemetry from an actual atomic test
-exists — not a record of anything that has happened.
+Scripting Interpreter: PowerShell)**. T1059.001 has now actually been run —
+see Walkthrough 4 below for the real result. T1078.004 remains "planned,
+not yet run," since it involves cloud identity context this lab's Windows VM
+doesn't provide. What follows for T1078.004 specifically is explicitly a
+**hypothetical** walk of what triage *would* look like, not a record of
+anything that has happened.
 
 **T1078.004 (Cloud Accounts) — would-run triage shape:** the Atomic Red Team
 test for this technique typically involves authenticating with a valid
@@ -225,23 +224,43 @@ pattern, and check what the session did immediately after authenticating
 (the "how many" and "what" of triage). The hypothetical verdict path mirrors
 the GUID runbook's logic: identity + context + behavioral deviation.
 
-**T1059.001 (PowerShell) — would-run triage shape:** the Atomic Red Team test
-for this technique executes PowerShell with patterns commonly associated
-with malicious use (encoded commands, download-and-execute patterns, AMSI-
-bypass-adjacent syntax). If Sysmon were installed and forwarding Event ID 1
-(process creation) and Event ID 4104 (PowerShell script block logging) to
-Wazuh, the triage an analyst would perform: read the decoded/deobfuscated
-command line, check the parent process (was PowerShell spawned by a normal
-admin session, or by something like an Office document process — a strong
-signal either way), and check for any follow-on network connections or
-process spawns from that PowerShell session. This is explicitly presented as
-"here is what the triage would look like," not as an event that has
-occurred — the honest state of this lab is that this remains future work,
-tracked as Lab 5 in Part 9.
+**Walkthrough 4: T1059.001, run for real, caught by Wazuh's built-in Sysmon ruleset**<!--h3-->
 
-**Walkthrough 4: The real live-fired alerts from this lab session**<!--h3-->
+Unlike T1078.004 above, this one actually happened. Sysmon and the Wazuh
+agent are installed on the Windows VM (Part 9, Lab 5), and a real encoded
+PowerShell execution was run against it and caught clean.
 
-Unlike the previous walkthrough, these two are genuinely real: they fired
+- **Who:** the built-in Administrator account on the isolated lab VM
+  (`WIN-ATOMICLAB`) — a real deviation from `atomic-red-team-validation`'s
+  own stated rule of using a separate throwaway local account, documented
+  honestly in that repo's `LAB-SETUP.md` rather than glossed over.
+- **What:** `powershell.exe -NoProfile -E <base64>`, decoding to a harmless
+  `Write-Host <test GUID>` — Atomic Test #15 for T1059.001 (not Test #1,
+  which turned out to be Mimikatz, caught via a `-ShowDetails` dry-run
+  *before* anything executed). The process was launched via WMI
+  (`WmiPrvSE.exe` as parent), not a direct shell spawn — a real execution
+  detail, not something planned for.
+- **How many:** one deliberate test execution, plus 36+ incidental Sysmon
+  file-create events from .NET's own script-block compilation caching —
+  noise from a completely benign side effect, not part of the technique
+  itself, and a real, live example of the alert-fatigue problem this
+  document discusses elsewhere.
+- **Is this expected:** yes, in the sense that it was deliberate, controlled
+  test traffic — but the point of running it wasn't to confirm something
+  benign, it was to confirm Wazuh's detection actually fires on this
+  execution pattern, which it did: rule `92071` (level 12), correctly
+  tagged with both **T1047** (WMI) and **T1059.001** (PowerShell), full
+  command line and file hashes captured. One-line verdict: *"Expected —
+  deliberate technique validation; Wazuh's built-in Sysmon ruleset caught
+  it cleanly with correct dual MITRE mapping, no custom rule needed."* The
+  real gap this surfaced wasn't the detection rule — it was that Wazuh's
+  Windows agent doesn't monitor the Sysmon channel by default at all,
+  documented in Part 10.13, which would have made this alert impossible
+  regardless of rule quality.
+
+**Walkthrough 5: The real live-fired alerts from this lab session**<!--h3-->
+
+These are also genuinely real: they fired
 during this lab session, against real (synthetic-but-live) traffic, and
 produced real alert JSON in the Wazuh dashboard. These are deliberately
 kept as **micro-triage** examples — real alert, real one-line assessment —
@@ -294,7 +313,7 @@ Wazuh's *built-in* `mysql_log` decoder/rule pipeline (no custom rule needed
   an immediate check of attempt volume and source — a handful of failures
   from one internal IP is very different from hundreds from an external one.
 
-**Walkthrough 5: The two identity incident-response case studies (`detection-engineering/identity-incident-response/`)**<!--h3-->
+**Walkthrough 6: The two identity incident-response case studies (`detection-engineering/identity-incident-response/`)**<!--h3-->
 
 Unlike Walkthrough 3 above, these two are not hypothetical, and they're a stronger example of a full case-study lifecycle than anything else in this document: `detection-engineering/identity-incident-response/` contains **full, complete lifecycle case studies** — detection through lessons learned, each with a Sigma rule, an incident report, a playbook, and a hunting query — grounded in a fictional Contoso scenario (`j.reyes@contoso.com`).
 

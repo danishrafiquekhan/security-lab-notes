@@ -456,3 +456,157 @@ inferred conventions don't; this exact document's own formatting rule
 is itself only followable because it was stated explicitly in the brief
 each writer received, which is the direct, deliberate fix for the
 failure mode described in this case study.
+
+**10.11 LocalStack S3 needs path-style addressing, or `apply` hangs forever**<!--h2-->
+
+**Symptom**: `terraform apply` against LocalStack, for a config using the
+`aws` provider to create an S3 bucket, hung indefinitely — no error, no
+progress, just sat there. LocalStack's own container logs showed the
+actual cause repeating over and over: `exception during call chain:
+Unable to find operation for request to service s3: HEAD /`, followed
+by `HEAD / => 500`, every few seconds.
+
+**Root cause**: the AWS provider defaults to virtual-hosted-style S3
+addressing — `bucket-name.s3.amazonaws.com` — when checking whether a
+bucket already exists before creating it. LocalStack serves every AWS
+service off a single endpoint (`localhost:4566`), so it needs path-style
+addressing instead (`localhost:4566/bucket-name`) to know which bucket a
+request is actually for. A virtual-hosted-style request arrives as a
+bare `HEAD /` with no bucket name anywhere LocalStack can find it,
+which it can't route to any operation — so it 500s, and the provider,
+seeing a failure rather than a clean 404 (bucket doesn't exist yet),
+just retries the same malformed request rather than treating it as
+permission to proceed with creation.
+
+**Fix**: one line in the provider block — `s3_use_path_style = true`.
+Immediate; the very next `apply` attempt succeeded cleanly.
+
+**Lesson**: a hang with zero error output is a different failure mode
+from a hang with a visible retry loop, and the difference matters for
+where to look. Terraform's own CLI output gave no indication anything
+was wrong — the actual diagnostic signal was sitting in the *target's*
+logs, not the tool's. When a `plan`/`apply` against any non-AWS-default
+endpoint just sits there, check the target's own request logs before
+assuming the Terraform config itself is broken; the request may be
+arriving and failing silently on the other end, not failing to send at
+all.
+
+**10.12 Non-interactive PowerShell Gallery installs hang on the NuGet provider prompt**<!--h2-->
+
+**Symptom**: `Install-Module -Name powershell-yaml -Force` over PowerShell
+remoting (WinRM) to the Windows Server VM just hung — no output, no
+error, no completion, indefinitely. Killing and retrying the exact same
+command produced the same silent hang every time.
+
+**Root cause**: a fresh Windows install has no NuGet package provider
+registered, and PowerShell's `Install-Module` needs one to talk to the
+PowerShell Gallery. On a first run, it normally prompts interactively —
+"NuGet provider is required to continue... Do you want PowerShell to
+install and import the NuGet provider now?" — and waits for a
+keypress. Over an interactive console that prompt is easy to miss for a
+second and then answer; over WinRM there is no console for it to prompt
+on, so the command just blocks forever waiting for input that can never
+arrive. `-Force` on `Install-Module` does not suppress this — it
+answers a different, later prompt (about installing from an untrusted
+repository), not this earlier one about the provider itself.
+
+**Fix**: install the NuGet provider and trust the PSGallery repository
+explicitly, before ever calling `Install-Module`:
+```powershell
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+```
+Once both of those succeed, every subsequent `Install-Module` call
+completes normally with no further prompts.
+
+**Lesson**: any Windows automation driven non-interactively (WinRM,
+CI, a provisioning script) needs every one-time interactive prompt a
+fresh install might trigger — package providers, repository trust,
+execution policy — handled explicitly and in advance, not assumed away
+by a flag that looks like it should cover it. `-Force` covering "this
+specific confirmation" is not the same claim as "-Force covering every
+confirmation this command could possibly show," and the two are easy to
+conflate until a silent hang forces the distinction.
+
+**10.13 Wazuh's Windows agent doesn't monitor the Sysmon event channel by default**<!--h2-->
+
+**Symptom**: Sysmon was installed and confirmed running on the Windows
+VM (SwiftOnSecurity config, service started cleanly), and the Wazuh
+agent was confirmed **Active** on the manager, forwarding real Windows
+Security event log telemetry (logon/logoff events showed up as genuine
+Wazuh alerts). But nothing from Sysmon specifically ever appeared —
+no process-creation events, nothing on Sysmon's own event channel at
+all, despite Sysmon itself clearly working.
+
+**Root cause**: the Wazuh Windows agent's default `ossec.conf` only
+configures three `eventchannel` localfile sources — Application,
+Security, and System, the three built-in Windows Event Log channels.
+Sysmon writes to its own separate channel,
+`Microsoft-Windows-Sysmon/Operational`, which isn't one of those three
+and isn't added automatically just because Sysmon is installed and
+running. An agent can be genuinely healthy and actively forwarding
+real telemetry while still being completely blind to Sysmon, because
+Sysmon telemetry was never one of the things it was told to watch.
+
+**Fix**: add an explicit `<localfile>` block to the agent's
+`ossec.conf` for the Sysmon channel:
+```xml
+<localfile>
+  <location>Microsoft-Windows-Sysmon/Operational</location>
+  <log_format>eventchannel</log_format>
+</localfile>
+```
+then restart the `WazuhSvc` service. Telemetry started flowing
+immediately afterward.
+
+**Lesson**: "the agent is Active" and "the agent is Active and
+correctly wired to your specific value-added telemetry source" are two
+separate claims, and only checking the first one is a common, easy way
+to think detection coverage exists when it doesn't. Any time a specific
+Windows Event Log channel (Sysmon, PowerShell Operational, Windows
+Defender, etc.) matters for a given detection story, verify it's
+explicitly in the agent's `ossec.conf`, not just that the agent process
+itself is running and reachable.
+
+**10.14 `Invoke-AtomicTest`'s process-management wrapper hangs indefinitely over WinRM**<!--h2-->
+
+**Symptom**: `Invoke-AtomicTest T1059.001 -TestNumbers 15` (a confirmed
+safe, benign encoded-PowerShell test, verified with a `-ShowDetails`
+dry-run first) hung indefinitely when run over PowerShell remoting
+(WinRM), reporting `Process Timed out after 120 seconds` — and the same
+result at every different `-TimeoutSeconds` value tried, from 20 up to
+120. The command wasn't running slowly; it was reliably hitting
+whatever timeout was set, every time, which is the signature of
+something structurally blocked rather than something merely slow.
+
+**Root cause**: `Invoke-AtomicTest`'s own process-launching and
+process-waiting logic doesn't behave the same way under a WinRM remote
+session as it does interactively — the specific mechanism it uses to
+track whether the spawned attack-command process has finished doesn't
+resolve correctly without an interactive desktop session backing it.
+The underlying attack command it wraps is fine; only the wrapper's own
+completion-detection logic is affected.
+
+**Fix**: bypass `Invoke-AtomicTest`'s wrapper and call the actual
+attack-command logic directly. For this specific test, that meant
+calling `Out-ATHPowerShellCommandLineParameter` (the `AtomicTestHarnesses`
+module cmdlet the atomic test's YAML definition wraps) directly instead
+of going through `Invoke-AtomicTest` at all:
+```powershell
+Import-Module AtomicTestHarnesses -Force
+Out-ATHPowerShellCommandLineParameter -CommandLineSwitchType Hyphen -EncodedCommandParamVariation E -Execute -ErrorAction Stop
+```
+This ran immediately and returned a clean `TestSuccess: True` result
+with a real process ID — the actual technique executed correctly the
+entire time, only the outer wrapper's own timeout logic was broken for
+this execution context.
+
+**Lesson**: when a security-testing framework's high-level convenience
+wrapper misbehaves in an unusual execution context (here: driven
+non-interactively over remoting, rather than from an interactive
+session), check whether the actual underlying mechanism it wraps still
+works when called directly before concluding the technique itself
+can't be tested. The wrapper and the technique are different things,
+and a wrapper bug is not evidence the technique wasn't validated —
+it's evidence to go one layer deeper before giving up.

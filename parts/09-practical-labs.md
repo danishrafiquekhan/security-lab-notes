@@ -498,56 +498,83 @@ merit; no decision has been made.
   reachability), and conflating the two is exactly the kind of overclaiming
   this document is built to avoid.
 
-**Lab 5 (NOT YET DONE — a documented next step, not a completed lab): install Sysmon + a Wazuh agent, run one real Atomic Red Team test**<!--h2-->
+**Lab 5 (DONE, for T1059.001 — T1078.004 still pending): install Sysmon + a Wazuh agent, run a real Atomic Red Team test**<!--h2-->
 
 **Status**<!--h3-->
 
-This lab has not been performed. It is included here specifically so the
-gap is documented rather than silently missing, and so a reader knows
-exactly what remains between "a Windows VM exists" (Lab 4) and "the
-`atomic-red-team-validation` repo's T1078.004 and T1059.001 case studies are
-real, run, evidenced case studies" rather than the "planned, not yet run"
-state they're honestly labeled with today (see Part 6, Walkthrough 3).
+Performed for real. Sysmon and the Wazuh agent are installed on the
+Windows Server 2022 VM from Lab 4, the agent is confirmed **Active** on
+the manager, and one real Atomic Red Team technique (T1059.001,
+encoded PowerShell) has been executed and caught clean by Wazuh's
+**built-in** Sysmon ruleset — no custom rule needed. `T1078.004` in
+`atomic-red-team-validation` is still "planned, not run yet"; this lab
+closed the gap for one of the two case studies, not both.
 
-**Goal (planned)**<!--h3-->
+**How it actually went, versus the plan**<!--h3-->
 
-Install Sysmon and a Wazuh agent on the Windows Server 2022 VM from Lab 4,
-confirm the agent registers with the Wazuh manager from Lab 1 and Sysmon
-telemetry (process creation, PowerShell script block logging) flows into
-Wazuh, then run exactly one Atomic Red Team test — most naturally
-T1059.001 (PowerShell), since it requires no cloud identity setup, unlike
-T1078.004 which involves cloud account context — and confirm Wazuh produces
-a real alert from real Sysmon telemetry of that real technique execution.
+- Reachability was solved differently than either option Lab 4 left
+  open (RDP or WinRM, both unconfirmed at the time). WinRM won: a
+  `hostfwd` port-forward for 5985 on the QEMU NAT network, verified
+  reachable, then driven from the host via `pywinrm` — real
+  authenticated command execution confirmed before installing anything.
+- The originally-planned Atomic Test #1 for T1059.001 turned out to be
+  "Mimikatz" (downloads and runs a real credential dumper) — caught via
+  a `-ShowDetails` dry-run *before* executing anything, not after. Test
+  #15 ("ATHPowerShellCommandLineParameter -EncodedCommand parameter
+  variations") was the actual benign encoded-PowerShell test intended,
+  found by listing every test in the technique's YAML definition rather
+  than trusting the first test number to be the simplest one.
+- `Invoke-AtomicTest`'s own wrapper hung indefinitely over WinRM,
+  regardless of `-TimeoutSeconds` value — a real, documented bug (Part
+  10.14), not a technique failure. The underlying attack-command logic
+  it wraps (`Out-ATHPowerShellCommandLineParameter`, from the
+  `AtomicTestHarnesses` module) ran fine called directly, bypassing the
+  wrapper entirely.
+- A real, separate gap surfaced along the way (Part 10.13): Wazuh's
+  Windows agent doesn't monitor the Sysmon event channel by default —
+  only Application/Security/System are configured out of the box. Real
+  Windows telemetry was already flowing (logon/logoff events proved the
+  agent itself worked) while Sysmon-specific telemetry was still
+  completely invisible, until the Sysmon channel was added to the
+  agent's `ossec.conf` explicitly.
 
-**Prerequisites this depends on**<!--h3-->
+**What it actually produced**<!--h3-->
 
-- Lab 4's VM, plus resolving the stated RDP/WinRM reachability gap from Lab
-  4 first — Sysmon and agent installation will need either a working RDP
-  session or working WinRM/PowerShell remoting from the host, and neither
-  has been confirmed working yet.
-- Sysmon (Microsoft Sysinternals, **[FREE]**) with a configuration file
-  (commonly a public baseline like SwiftOnSecurity's or Olaf Hartong's
-  Sysmon-modular config) tuned to log process creation (Event ID 1) and,
-  for PowerShell-specific visibility, PowerShell script block logging
-  (Event ID 4104) enabled via Group Policy or registry.
-- The Wazuh Windows agent package, installed and pointed at this lab's
-  Wazuh manager (`wazuh.manager` container from Lab 1) with the manager's
-  address and an enrollment key.
-- The Atomic Red Team PowerShell module (`Invoke-AtomicRedTeam`) installed
-  on the guest to actually execute the T1059.001 atomic test.
+A real Sysmon Event ID 1 (process creation) for
+`powershell.exe -NoProfile -E <base64>`, forwarded to Wazuh, correctly
+fired as rule `92071` — *"A powershell process created by WMI executed
+a base64 encoded command"* — level 12, tagged with **both** T1047
+(Windows Management Instrumentation) and T1059.001 (PowerShell). The
+dual tagging wasn't something planned for: `AtomicTestHarnesses`
+launches its target process via WMI (`WmiPrvSE.exe` as the parent
+process) rather than a direct child-process spawn, a real execution
+detail that changed which techniques the alert correctly matched — see
+the full case study in `atomic-red-team-validation` for the complete
+forensic detail captured (command line, file hashes, parent process
+chain).
 
-**What it would teach, once done**<!--h3-->
+A side effect worth noting honestly: the same PowerShell invocation
+also produced 36+ separate Sysmon file-create alerts from `.NET`'s own
+script-block compilation caching temp files — a live, real example of
+the alert-fatigue problem discussed in Part 5 and Part 6, from a
+completely benign, everyday execution path.
 
-- Whether Wazuh's default Windows/Sysmon ruleset detects the atomic test's
-  execution pattern out of the box, or whether — as with the Cloudflare
-  case in Lab 2 rather than the MySQL case in Lab 3 — a custom rule is
-  needed to catch it, which itself would be a useful, real data point about
-  Wazuh's out-of-box Windows detection coverage versus its Linux/network
-  coverage demonstrated in Labs 2 and 3.
-- The full, real version of the hypothetical T1059.001 triage walkthrough
-  in Part 6 — turning that "here is what triage would look like" narrative
-  into an actual alert with actual evidence, the same transition Labs 2 and
-  3 already made for their respective detections.
+**What this lab teaches**<!--h3-->
 
-Until this lab is performed, any description of what its results would look
-like remains explicitly hypothetical, exactly as framed in Part 6.
+- Wazuh's default Windows/Sysmon ruleset caught this technique with
+  zero custom rule work — a materially different result from the
+  Cloudflare case in Lab 2, which needed a custom rule because Wazuh
+  has no built-in decoder for arbitrary JSON web logs. Real, measured
+  evidence that Wazuh's out-of-box Windows/Sysmon coverage is stronger
+  than its coverage for a source it wasn't originally built to speak.
+- The full, real version of the T1059.001 triage walkthrough now exists
+  in Part 6 (Walkthrough 4) as an actual alert with actual evidence,
+  not a hypothetical narrative — the same transition Labs 2 and 3 made
+  for their respective detections.
+- Verifying a security-testing tool's own convenience wrapper still
+  works in an unusual execution context (non-interactive remoting) is
+  its own real skill, separate from validating the technique itself —
+  see Part 10.14 for the general lesson.
+
+T1078.004 remains explicitly hypothetical, exactly as framed in Part
+6's Walkthrough 3, until it's actually run the same way.

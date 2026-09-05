@@ -21,19 +21,21 @@ Solid arrows are real, verified, currently-working data flows. Dashed arrows are
 - Suricata → Wazuh, over a dedicated Docker bridge network → Wazuh's built-in Suricata decoder/rule (real ET ruleset alert, "ET SCAN RDP Connection Attempt from Nmap" sid 2036252, fired via rule id 86601 — no custom rule needed, same situation as MySQL)
 - Auth0 System Log → checkpoint-polling script → Wazuh custom rules (a fourth live source, with a real least-privilege lesson along the way — see the first architectural decision below)
 - Wazuh → custom `custom-thehive` integration → TheHive cases (verified across three live sources: Cloudflare, MySQL, Suricata, with real case numbers; routine platform noise correctly did not create cases)
+- The Windows Server VM — Sysmon installed (SwiftOnSecurity config) and the Wazuh agent installed, enrolled, and confirmed **Active** on the manager. A real Atomic Red Team technique (T1059.001, an encoded PowerShell execution) has been run against it and caught clean by Wazuh's **built-in** Sysmon ruleset — no custom rule needed — with correct dual MITRE mapping (T1047 WMI + T1059.001 PowerShell). See `atomic-red-team-validation`'s T1059.001 case study for the full result, including a real gap found along the way: Wazuh's Windows agent doesn't monitor the Sysmon event channel by default, so that had to be added explicitly before any of this telemetry could ever arrive.
+- `terraform apply`/`destroy`, for real — but against LocalStack (free, local AWS emulation), not the real Azure subscription every other exercise here targets. LocalStack only emulates AWS, so this is a deliberately separate exercise using the `aws` provider, not a retroactive application of the existing `azurerm`-based ones. A real bug got hit and fixed along the way (S3 path-style addressing) — see Part 10.
 
 **Built and working, but not always running:**
 
 - TheHive + Cortex — a real case management/SOAR stack that now actually receives cases from Wazuh alerts (see above), but sits **stopped by default** — a real Docker resource constraint on a 16GB Mac, only brought up when actually needed, not a "built but disconnected" gap anymore.
-- LocalStack — used standalone for AWS IAM testing content, not feeding any SIEM.
+- LocalStack — used both for AWS IAM testing content (`aws-identity-detection`) and now for a real terraform apply/destroy cycle (see above), not feeding any SIEM.
 
-**Built, but the next connection is the actual point of building it and hasn't happened yet:**
+**Still the actual next step:**
 
-- The Windows Server VM — installed and reachable at a desktop, but has no Sysmon and no Wazuh agent installed on it yet. Until that happens, it cannot generate the telemetry the atomic-red-team-validation repo's case studies need to become real, executed, evidenced work instead of "planned, not run yet" documentation.
+- More Atomic Red Team technique runs against the Windows VM — T1059.001 is done, `atomic-red-team-validation`'s other case study (T1078.004) is still "planned, not run yet." The endpoint and the telemetry pipeline are both proven working now; it's a matter of running more techniques through it, not building anything new first.
 
 **Documented as a plan, never actually built:**
 
-- Any `terraform apply` against the real Azure subscription — every exercise in terraform-labs is syntax-valid and `terraform validate`-clean, and none has ever created a single real Azure resource.
+- Any `terraform apply` against the real **Azure** subscription specifically — every `azurerm`-based exercise in terraform-labs is syntax-valid and `terraform validate`-clean, and none has ever created a single real Azure resource. (A real apply/destroy cycle now exists, just against LocalStack/AWS instead — see above.)
 
 **Why the lab is structured this way**<!--h2-->
 
@@ -43,4 +45,4 @@ Three deliberate architectural decisions run through everything else in this doc
 
 **2. Everything that touches real traffic is disclosed as synthetic, and audited for real-data leaks before going public.** The Cloudflare site has an on-page banner disclosing it's a lab fixture. Every IP in every committed sample uses documentation-reserved ranges. A full confidentiality audit (current files and entire git history, across every repo) was run before treating any of this as safe to be public, and it found and fixed one real leak — a specific former employer's tool name, genericized before that repo could go public. This isn't paranoia; it's a real discipline anyone building a public portfolio from real work experience needs, and it's worth doing deliberately rather than trusting that nothing slipped through.
 
-**3. Gaps stay visible instead of getting quietly built around.** TheHive/Cortex sitting stopped by default, no terraform ever being applied, no Sysmon/agent on the Windows Server VM yet — none of these get hidden by only documenting the parts that work. A lab that shows you the finished, polished 20% teaches you a fraction of what one that shows the real, still-in-progress 100% does.
+**3. Gaps stay visible instead of getting quietly built around.** TheHive/Cortex sitting stopped by default, no `azurerm` terraform ever being applied, no Atomic Red Team run against the Windows VM yet even though it's finally ready for one — none of these get hidden by only documenting the parts that work. A lab that shows you the finished, polished 20% teaches you a fraction of what one that shows the real, still-in-progress 100% does.
