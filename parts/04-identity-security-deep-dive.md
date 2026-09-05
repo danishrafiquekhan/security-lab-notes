@@ -67,7 +67,7 @@ A **preventive control** stops the gap from being creatable in the first place �
 
 The reason this distinction is worth teaching carefully, not just naming: a detective control is usually *faster and cheaper to build* than a preventive one — an audit script that runs a Graph query and flags missing attributes (structurally similar to `orphaned_account_detection.py` in this same repo, which flags enabled accounts with no manager assigned by walking `/users` and checking `/users/{id}/manager` for a 404) can be written in an afternoon. Rebuilding a provisioning workflow so it structurally cannot create an unverified account is a real engineering and process change, often touching whatever system originates the Joiner event (HR system, ticketing system, or a manual request form) — and that's exactly why organizations under time pressure land on the detective control and stop there, and why "we have a script that catches this" quietly becomes the permanent answer instead of the interim one. Recognizing that pattern — and pushing past it — is a real, teachable piece of identity governance judgment, not a theoretical nuance.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/04-identity-security-deep-dive-10.png)
+![Diagram](../diagrams/04-identity-security-deep-dive-10.png)
 
 **JML and Mover/Leaver in this lab's other content**<!--h3-->
 
@@ -98,7 +98,7 @@ The `guid-triage` runbook in `detection-engineering` documents the actual sequen
 
 A 404 here isn't "inconclusive" — it's the actual finding. It means: whatever this GUID is, it is *not* an identity, because if it were, the tenant's own identity directory would know about it. That reframes the original alert from "unrecognized identity accessing a resource" to "a non-identity resource ID got picked up by log parsing/correlation logic that assumed every GUID in that log field was an identity" — which is a detection-tuning problem (see the `falsepositives` discussion in Part 5.4), not a security incident.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/04-identity-security-deep-dive-11.png)
+![Diagram](../diagrams/04-identity-security-deep-dive-11.png)
 
 **Why this matters beyond one runbook**<!--h3-->
 

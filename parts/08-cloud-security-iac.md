@@ -223,7 +223,7 @@ shared enforcement point scales better than distributed, per-team
 discipline, because it does not depend on every team remembering to do
 the right thing every time a new service is deployed.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/08-cloud-security-iac-16.png)
+![Diagram](../diagrams/08-cloud-security-iac-16.png)
 
 **The honest limitation**<!--h3-->
 
@@ -310,7 +310,7 @@ acceptable level does the policy get flipped to prevention mode — at
 which point blocking real traffic is a calculated, informed decision
 instead of a blind bet.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/08-cloud-security-iac-17.png)
+![Diagram](../diagrams/08-cloud-security-iac-17.png)
 
 **When to use this / when NOT to use this**: detection mode is the right
 starting point for *any* new WAF policy, or any change to an existing

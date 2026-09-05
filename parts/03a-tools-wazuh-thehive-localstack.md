@@ -89,7 +89,7 @@ other. That gap is real and stated plainly, not smoothed over.
 
 **Internal architecture**<!--h3-->
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03a-tools-wazuh-thehive-localstack-3.png)
+![Diagram](../diagrams/03a-tools-wazuh-thehive-localstack-3.png)
 
 The manager is the decode-and-detect engine; the indexer (OpenSearch-based)
 is the storage/search backend; the dashboard is the web UI on top of the
@@ -389,7 +389,7 @@ one.
 
 **Internal architecture**<!--h3-->
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03a-tools-wazuh-thehive-localstack-4.png)
+![Diagram](../diagrams/03a-tools-wazuh-thehive-localstack-4.png)
 
 **Install and configuration as used in this lab**<!--h3-->
 
@@ -525,7 +525,7 @@ for real).
 
 **Internal architecture**<!--h3-->
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03a-tools-wazuh-thehive-localstack-5.png)
+![Diagram](../diagrams/03a-tools-wazuh-thehive-localstack-5.png)
 
 LocalStack's architecture is a single container exposing one edge endpoint
 (by default port 4566) that internally routes requests to the correct

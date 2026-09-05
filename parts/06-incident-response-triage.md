@@ -9,7 +9,7 @@ tool names, because the tools change (this lab uses Wazuh **[FREE]** and
 TheHive/Cortex **[FREE]**; a production shop might use Splunk **[PAID]** and
 ServiceNow SecOps **[PAID]**) but the stages don't.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/06-incident-response-triage-12.png)
+![Diagram](../diagrams/06-incident-response-triage-12.png)
 
 **Alert** is a machine-generated signal: a correlation rule matched a pattern
 in log data and produced a record with a severity level, a source, and some

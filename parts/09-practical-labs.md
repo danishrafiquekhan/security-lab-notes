@@ -10,7 +10,7 @@ was verified up to a specific, stated point and no further. Lab 5 is
 explicitly not done yet and is included as a documented next step, not a
 completed lab.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/09-practical-labs-18.png)
+![Diagram](../diagrams/09-practical-labs-18.png)
 
 **Lab 1: Stand up Wazuh **[FREE]** locally via Docker**<!--h2-->
 

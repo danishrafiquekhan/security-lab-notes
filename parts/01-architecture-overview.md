@@ -8,7 +8,7 @@ The lab is not one finished system. It is several independently useful pieces, s
 
 **Master architecture diagram**<!--h2-->
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/01-architecture-overview-1.png)
+![Diagram](../diagrams/01-architecture-overview-1.png)
 
 Solid arrows are real, verified, currently-working data flows. Dashed arrows are either genuinely absent connections (documented gaps) or "this repo documents/tests against this thing, but there's no live data flow" relationships. Reading the dashed arrows honestly is as important as reading the solid ones — a lab diagram that only shows solid arrows is lying by omission.
 

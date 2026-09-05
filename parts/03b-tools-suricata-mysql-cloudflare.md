@@ -293,7 +293,7 @@ arbitrary application's actual log output byte-for-byte, and the practical
 fix is almost always a small normalization step ahead of ingestion, not
 rewriting the SIEM's decoder.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03b-tools-suricata-mysql-cloudflare-6.png)
+![Diagram](../diagrams/03b-tools-suricata-mysql-cloudflare-6.png)
 
 **The verified result**<!--h3-->
 
@@ -436,7 +436,7 @@ structurally, and (b) a format the SIEM's *rule content* already has
 opinions about semantically. A source can need heavy help on one axis and
 none on the other, as both of these prove in opposite ways.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03b-tools-suricata-mysql-cloudflare-7.png)
+![Diagram](../diagrams/03b-tools-suricata-mysql-cloudflare-7.png)
 
 **Verified result**<!--h3-->
 

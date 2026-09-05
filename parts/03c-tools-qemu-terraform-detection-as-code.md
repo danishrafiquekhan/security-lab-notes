@@ -310,7 +310,7 @@ this portfolio should take that distinction at face value rather than
 assuming "clean Terraform repo" implies "deployed and proven"; the two are
 different claims, and this lab only makes the first one.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03c-tools-qemu-terraform-detection-as-code-8.png)
+![Diagram](../diagrams/03c-tools-qemu-terraform-detection-as-code-8.png)
 
 **When to use this / when NOT to use this**<!--h3-->
 
@@ -412,7 +412,7 @@ beyond a handful of rules — the same reason ATT&CK Navigator-style
 heatmaps are a standard SOC reporting artifact in real security
 programs.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/03c-tools-qemu-terraform-detection-as-code-9.png)
+![Diagram](../diagrams/03c-tools-qemu-terraform-detection-as-code-9.png)
 
 **When to use this / when NOT to use this**<!--h3-->
 

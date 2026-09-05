@@ -24,7 +24,7 @@ below it being healthy — a Docker Desktop that hasn't been launched yet
 will make every container command below it fail in a way that looks like a
 Docker problem but is actually a "the daemon isn't running" problem.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/02-environment-setup-2.png)
+![Diagram](../diagrams/02-environment-setup-2.png)
 
 The important read of this diagram: Homebrew is the single install path
 for almost everything else. Docker Desktop and QEMU are peers — both sit

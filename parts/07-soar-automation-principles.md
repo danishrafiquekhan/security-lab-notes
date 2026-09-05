@@ -54,7 +54,7 @@ geolocation, pulling recent sign-in history for the same account, and
 attaching all of it back onto the alert as enrichment before a human analyst
 ever looks at it.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/07-soar-automation-principles-13.png)
+![Diagram](../diagrams/07-soar-automation-principles-13.png)
 
 **Why no approval gate is needed here.** Every action this playbook takes is
 a *read*. It queries state; it changes nothing. There is no scenario in
@@ -82,7 +82,7 @@ Graph). Critically, **before either action executes**, the playbook posts an
 approval card into a Microsoft Teams channel and blocks until a designated
 approver responds.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/07-soar-automation-principles-14.png)
+![Diagram](../diagrams/07-soar-automation-principles-14.png)
 
 **Why an approval gate here specifically.** This is the playbook that sits
 squarely in the "irreversible-ish, affects a real user's ability to work"
@@ -116,7 +116,7 @@ own management channel, which can leave a device isolated but unmanageable —
 unable to receive the un-isolate command remotely, unable to keep reporting
 telemetry that would help confirm the infection is actually contained.
 
-![Diagram](/Users/dk/securitylab/knowledge-doc/diagrams/07-soar-automation-principles-15.png)
+![Diagram](../diagrams/07-soar-automation-principles-15.png)
 
 **Why selective is the safer automated default.** Selective isolation is a
 narrower, more conservative action than full isolation — it removes the
