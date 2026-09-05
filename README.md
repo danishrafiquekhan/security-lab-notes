@@ -6,7 +6,7 @@ Start here if you want the full picture, or jump straight to whichever part is r
 
 **Download the whole thing as one document**
 
-Get it from **[Releases → v1.0](https://github.com/danishrafiquekhan/security-lab-notes/releases/tag/v1.0)** — Word (.docx) and PDF, ~95 pages / ~46,000 words, all 18 diagrams embedded, full table of contents. Same content as the parts below, assembled into one file.
+Get it from **[Releases → v1.0](https://github.com/danishrafiquekhan/security-lab-notes/releases/tag/v1.0)** — Word (.docx) and PDF, ~52,000 words, all diagrams embedded, full table of contents. Same content as the parts below, assembled into one file.
 
 **Or read it part by part**
 
@@ -25,6 +25,7 @@ Get it from **[Releases → v1.0](https://github.com/danishrafiquekhan/security-
 - [Part 10 — Real troubleshooting log](parts/10-troubleshooting-log.md) — the actual bugs hit building this, not a hypothetical FAQ
 - [Part 11 — Glossary](parts/11-glossary.md)
 - [Part 12 — Appendix: paid vs free summary table](parts/12-appendix-paid-vs-free.md)
+- [Part 13 — Lab metrics: what actually got measured](parts/13-lab-metrics.md) — real detection pipeline latency by source, multi-step attack chain timing, MITRE coverage fired vs designed-only, and what still isn't measured
 
 **Why this exists**
 
