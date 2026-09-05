@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check relative links and image paths resolve
+        run: |
+          python3 -c "
+          import re, glob, os
+
+          link_re = re.compile(r'\[[^\]]*\]\(([^)]+)\)')
+          broken = []
+          checked = 0
+          for f in glob.glob('**/*.md', recursive=True):
+              text = open(f).read()
+              base = os.path.dirname(f)
+              for link in link_re.findall(text):
+                  link = link.split(' ')[0]
+                  if link.startswith('http://') or link.startswith('https://') or link.startswith('#'):
+                      continue
+                  target = os.path.normpath(os.path.join(base, link))
+                  checked += 1
+                  if not os.path.exists(target):
+                      broken.append((f, link, target))
+
+          print(f'checked {checked} local links')
+          for b in broken:
+              print('BROKEN:', b)
+          assert not broken, f'{len(broken)} broken relative link(s) found'
+          print('all local links resolve')
+          "
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

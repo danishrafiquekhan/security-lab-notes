@@ -1,5 +1,7 @@
 **security-lab-notes**
 
+[![CI](https://github.com/danishrafiquekhan/security-lab-notes/actions/workflows/ci.yml/badge.svg)](https://github.com/danishrafiquekhan/security-lab-notes/actions/workflows/ci.yml)
+
 The complete reference for how everything else in this portfolio actually works — every tool, why it was chosen, what's paid vs free, and the real bugs hit building it. If you only read one thing before the individual repos, read this.
 
 Start here if you want the full picture, or jump straight to whichever part is relevant. Each repo elsewhere in this portfolio links back to the specific part(s) that explain the principles behind what's in it.
